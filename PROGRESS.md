@@ -4,13 +4,13 @@
 
 **Acceptance for this handover:** every command, link and "Expected" line from the supplied plan is present; all six revised steps are unchecked; no plan step has been run; `git log` contains a commit named "Handover snapshot" (or the missing git identity is reported).
 
-**State:** Plan transcribed only. No plan step started, no server started, no source fetches, no installs. Tracking applies to the six revised steps; the earlier five-step table is kept as history and is not tracked.
+**State:** Step 1 of 6 complete on 2026-11-04: backend correctness and tests, 32 offline tests passing. Steps 2–6 not started; no server started, no live source audit, no installs. Tracking applies to the six revised steps; the earlier five-step table is kept as history and is not tracked.
 
 **Rule:** Whenever a plan step finishes, tick its single checkbox and replace that step's Evidence line with the command and observed result. Unverified work does not get evidence.
 
 ## Done
 
-- None of the six plan steps. Only this handover file has been written.
+- Step 1 of 6: backend correctness and tests. See its Evidence line below.
 
 ## PLAN (copied in full)
 
@@ -56,8 +56,8 @@
 
 ### 1. Backend correctness and tests
 
-- [ ] **Step 1 of 6 — Backend correctness and tests**
-  **Evidence:** _Not started; no command from this step has been run._
+- [x] **Step 1 of 6 — Backend correctness and tests**
+  **Evidence:** 2026-11-04. `python -B -m unittest -v test_cinema` → `Ran 32 tests in 0.010s` / `OK`, exit 0. `python -B -c "import cinema; print(cinema.rome_now().isoformat())"` → `2026-11-04T14:35:41.167592+01:00`.
 
 **Files:** `cinema.py`, `test_cinema.py`.
 
@@ -321,7 +321,7 @@ The revised plan is six steps, within the limit. Step 4 is the critique-driven a
 
 ## Next
 
-1. Wait for the user. Do not start step 1. When authorised, execute step 1 only and update its Evidence line after `python -B -m unittest -v test_cinema` passes.
+1. Step 1 is complete and evidenced. Do not start step 2 without a new instruction.
 
 ## Open questions
 

@@ -4,8 +4,7 @@ Run: python cinema.py --no-browser
 from __future__ import annotations
 import argparse
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import date, datetime, timedelta
-from functools import partial
+from datetime import date, datetime, timedelta, timezone
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 import hashlib
 import html
@@ -14,6 +13,7 @@ from pathlib import Path
 import re
 import threading
 import time
+import unicodedata
 import urllib.request
 from urllib.parse import urljoin, urlparse, parse_qs
 import webbrowser
@@ -29,7 +29,31 @@ SOURCES = [
  {'id':'space','name':'The Space Porto Allegro','city':'Montesilvano','driveMinutes':25,'url':'https://www.thespacecinema.it/al-cinema/montesilvano'}]
 CACHE = None
 CACHE_AT = 0
+CACHE_TTL = 600
 LOCK = threading.Lock()
+UCI_BASE = 'https://ucicinemas.it'
+DAYS = 7
+LANGUAGE_CODES = {
+    'it': 'it', 'ita': 'it', 'italiano': 'it', 'italiana': 'it', 'italian': 'it',
+    'en': 'en', 'eng': 'en', 'inglese': 'en', 'english': 'en',
+    'fr': 'fr', 'fra': 'fr', 'fre': 'fr', 'francese': 'fr', 'french': 'fr',
+    'es': 'es', 'spa': 'es', 'spagnolo': 'es', 'spagnola': 'es', 'spanish': 'es',
+    'de': 'de', 'deu': 'de', 'ger': 'de', 'tedesco': 'de', 'tedesca': 'de', 'german': 'de',
+    'ko': 'ko', 'kor': 'ko', 'coreano': 'ko', 'coreana': 'ko', 'korean': 'ko',
+    'ja': 'ja', 'jpn': 'ja', 'giapponese': 'ja', 'japanese': 'ja',
+    'ru': 'ru', 'rus': 'ru', 'russo': 'ru', 'russian': 'ru',
+    'pt': 'pt', 'por': 'pt', 'portoghese': 'pt', 'portuguese': 'pt',
+    'zh': 'zh', 'zho': 'zh', 'chi': 'zh', 'cinese': 'zh', 'chinese': 'zh',
+}
+LANGUAGE_NAMES = {
+    'it': 'Italiano', 'en': 'Inglese', 'fr': 'Francese', 'es': 'Spagnolo',
+    'de': 'Tedesco', 'ko': 'Coreano', 'ja': 'Giapponese', 'ru': 'Russo',
+    'pt': 'Portoghese', 'zh': 'Cinese',
+}
+DUBBED_LABEL = re.compile(r'\bdoppiat[oaie]\b|\bdubbed\b')
+ORIGINAL_LABEL = re.compile(
+    r'versione originale|lingua originale|original version|'
+    r'\b(?:v\.?o\.?s?\.?|o\.?v\.?|vos|vost|sott\.?\s*ita)\b')
 
 
 def fetch(url):
@@ -45,111 +69,251 @@ def text(value):
     return re.sub(r'\s+', ' ', html.unescape(re.sub(r'<[^>]+>', ' ', value))).strip()
 
 
+def _last_sunday(year, month):
+    last = date(year, month, 31)
+    return (last - timedelta(days=(last.weekday() + 1) % 7)).day
+
+
+def _rome_offset(moment):
+    # EU DST switches at 01:00 UTC on the last Sunday of March and October.
+    moment = moment.replace(tzinfo=timezone.utc) if moment.tzinfo is None else moment.astimezone(timezone.utc)
+    start = datetime(moment.year, 3, _last_sunday(moment.year, 3), 1, tzinfo=timezone.utc)
+    end = datetime(moment.year, 10, _last_sunday(moment.year, 10), 1, tzinfo=timezone.utc)
+    return timezone(timedelta(hours=2)) if start <= moment < end else timezone(timedelta(hours=1))
+
+
+def rome_now(utc=None):
+    moment = utc or datetime.now(timezone.utc)
+    if moment.tzinfo is None:
+        moment = moment.replace(tzinfo=timezone.utc)
+    return moment.astimezone(_rome_offset(moment))
+
+
+def rome_today(utc=None):
+    return rome_now(utc).date()
+
+
 def normalize(value):
-    return re.sub(r'[^a-z0-9]', '', value.casefold())
+    decomposed = unicodedata.normalize('NFKD', str(value or ''))
+    plain = ''.join(char for char in decomposed if not unicodedata.combining(char))
+    return re.sub(r'\s+', ' ', re.sub(r'[^a-z0-9]+', ' ', plain.casefold())).strip()
 
 
 def metadata():
     path = ROOT / 'language-overrides.json'
-    if path.exists():
-        return json.loads(path.read_text(encoding='utf-8-sig'))
-    return {}
+    if not path.exists():
+        return {}
+    try:
+        raw = json.loads(path.read_text(encoding='utf-8-sig'))
+    except (OSError, ValueError):
+        return {}
+    return raw if isinstance(raw, dict) else {}
 
 
-def classify(label, title='', known=None):
+def override_index(known):
+    index = {}
+    for key, entry in (known or {}).items():
+        if not isinstance(entry, dict):
+            continue
+        title = str(entry.get('title') or key)
+        normalized = normalize(title)
+        if normalized:
+            index.setdefault(normalized, []).append({**entry, 'title': title})
+    return index
+
+
+def match_override(title, year=None, known=None):
+    candidates = override_index(known).get(normalize(title), [])
+    if year is not None:
+        return next((entry for entry in candidates if entry.get('year') == year), None)
+    return candidates[0] if len(candidates) == 1 else None
+
+
+def canonical_language(value):
+    if not value:
+        return ''
+    token = text(str(value)).casefold().strip(' .')
+    return LANGUAGE_CODES.get(token, token)
+
+
+def classify(label, title='', known=None, audio_lang=None, year=None):
     """A nationality is never accepted as proof of original language."""
-    label = text(label).casefold()
-    if re.search(r'\bdoppiat[oaie]\b|\bdubbed\b', label):
-        return 'dubbed', 'Italiano doppiato', text(label)
-    if re.search(r'versione originale|lingua originale|original version|\b(?:v\.?o\.?s?\.?|o\.?v\.?|vos|vost|sott\.?\s*ita)\b', label):
-        return 'original', 'Versione originale', text(label)
-    known = known or {}
-    entry = known.get(normalize(title), known.get(title, {}))
-    if entry and entry.get('language', '').casefold() in ('italiano','italian','it'):
-        return 'italian', 'Italiano originale', entry.get('evidence', 'Lingua originale italiana verificata')
+    label = text(label).casefold() if label else ''
+    audio = canonical_language(audio_lang)
+    audio_known = audio if audio in LANGUAGE_NAMES else ''
+    entry = match_override(title, year, known)
+    verified = canonical_language(entry.get('language')) if entry else ''
+    verified_known = verified if verified in LANGUAGE_NAMES else ''
+    verified_name = LANGUAGE_NAMES.get(verified, text(str(entry.get('language') or '')) if entry else '')
+    title_only = ' (anno non disponibile)' if entry and year is None else ''
+
+    if DUBBED_LABEL.search(label):
+        return 'dubbed', 'Doppiato', 'La fonte indica una versione doppiata' + (': ' + label if label else '')
+    if verified_known and audio_known and verified_known != audio_known:
+        return ('dubbed', 'Doppiato',
+                f'Film in {verified_name}; la proiezione è in {LANGUAGE_NAMES[audio_known]}: versione doppiata.')
+    if verified_known == 'it':
+        evidence = text(str(entry.get('evidence') or 'Lingua originale italiana verificata'))
+        return 'italian', 'Italiano', evidence + title_only
+    if verified_known and audio_known and verified_known == audio_known:
+        return ('original', verified_name,
+                f'Lingua originale verificata ({verified_name}) e audio della proiezione coerente.' + title_only)
+    if ORIGINAL_LABEL.search(label):
+        return 'original', 'Versione originale', 'Indicazione esplicita nella fonte: ' + label
+    if audio_known:
+        return ('unknown', 'Lingua da verificare',
+                f'Audio indicato dalla fonte: {LANGUAGE_NAMES[audio_known]}; lingua originale non verificata.')
     return 'unknown', 'Lingua da verificare', 'Nessuna indicazione esplicita di versione originale'
 
 
-def screening(source, title, day, clock, label='', booking='', known=None):
-    category, language, evidence = classify(label, title, known)
+def http_url(value, fallback=''):
+    if isinstance(value, str):
+        candidate = value.strip()
+        parsed = urlparse(candidate)
+        if parsed.scheme in ('http', 'https') and parsed.netloc:
+            return candidate
+    return fallback
+
+
+def screening(source, title, day, clock, label='', booking='', known=None, audio_lang=None, year=None):
+    category, language, evidence = classify(label, title, known, audio_lang, year)
     key = '|'.join((source['id'], title, day, clock, category))
+    source_url = http_url(source.get('url'), '')
     return {'id':hashlib.sha1(key.encode()).hexdigest()[:16], 'title':title,
             'cinemaId':source['id'], 'cinema':source['name'], 'city':source['city'],
             'date':day, 'time':clock, 'language':language, 'classification':category,
-            'evidence':evidence, 'sourceUrl':source['url'], 'bookingUrl':booking or source['url'],
-            'driveMinutes':source['driveMinutes']}
+            'evidence':evidence, 'sourceUrl':source_url,
+            'bookingUrl':http_url(booking, source_url), 'driveMinutes':source['driveMinutes']}
 
 
 def parse_multicinema(raw, source, day, known):
-    rows=[]
-    # Restrict to daily listing nodes; sidebar events must not leak into screenings.
-    chunks = re.split(r'<div\s+class="item_small"\s+ng-repeat="pr in getProgrammazioneGiornoSel\(\)"', raw)[1:]
-    for chunk in chunks:
-        chunk = chunk.split('<!-- .grid_9',1)[0]
-        heading = re.search(r'<h3>\s*<a\b[^>]*href="([^"]+)"[^>]*>(.*?)</a>\s*</h3>', chunk, re.S)
+    rows = []
+    # Bounding each block by the next item_small keeps the eventi/footer notes
+    # from attaching to the last daily film.
+    for block in re.split(r'(?=<div\s+class="item_small")', raw):
+        opening = re.match(r'<div\s+class="item_small"[^>]*>', block)
+        if not opening or 'getProgrammazioneGiornoSel()' not in opening.group(0):
+            continue
+        heading = re.search(r'<h3>\s*<a\b[^>]*href="([^"]+)"[^>]*>(.*?)</a>\s*</h3>', block, re.S)
         if not heading:
             continue
         title = text(heading.group(2))
-        times = re.search(r'<div class="tagcloud_orari">(.*?)</div>',chunk,re.S)
-        notes = ' '.join(re.findall(r'<span class="prog_nota\d">(.*?)</span>',chunk,re.S))
+        if not title:
+            continue
+        times = re.search(r'<div class="tagcloud_orari">(.*?)</div>', block, re.S)
         if not times:
             continue
-        for h,m in re.findall(r'\b([0-2]?\d)[.:]([0-5]\d)\b',text(times.group(1))):
-            if int(h)>23:
+        notes = ' '.join(text(note) for note in re.findall(r'<span class="prog_nota\d">(.*?)</span>', block, re.S))
+        language_note = bool(notes) and bool(DUBBED_LABEL.search(notes.casefold()) or ORIGINAL_LABEL.search(notes.casefold()))
+        for h, m in re.findall(r'\b([0-2]?\d)[.:]([0-5]\d)\b', text(times.group(1))):
+            if int(h) > 23:
                 continue
-            rows.append(screening(source,title,day,f'{int(h):02}:{m}',notes,
-                                  urljoin(source['url'],html.unescape(heading.group(1))),known))
+            row = screening(source, title, day, f'{int(h):02}:{m}', notes,
+                            urljoin(source['url'], html.unescape(heading.group(1))), known)
+            if language_note:
+                row['evidence'] += ' (nota della scheda giornaliera, valida per tutti gli orari della stessa scheda).'
+            rows.append(row)
     return rows
 
 
 def load_multicinema(source, offset, known):
-    day = (date.today()+timedelta(days=offset)).isoformat()
-    raw = fetch(source['url']+'&giornoSettimana='+str(offset))
-    return parse_multicinema(raw,source,day,known)
+    day = (rome_today() + timedelta(days=offset)).isoformat()
+    raw = fetch(source['url'] + '&giornoSettimana=' + str(offset))
+    return parse_multicinema(raw, source, day, known)
+
+
+def valid_clock(value):
+    if not isinstance(value, str) or not re.fullmatch(r'\d{2}:\d{2}', value):
+        return False
+    hours, minutes = (int(part) for part in value.split(':'))
+    return hours < 24 and minutes < 60
 
 
 def parse_uci(payload, source, known):
-    rows=[]
-    for movie in payload.get('data',[]):
-        for screens in movie.get('screens',[]):
-            for versions in screens.values():
+    rows = []
+    if not isinstance(payload, dict):
+        return rows
+    for movie in payload.get('data') or []:
+        if not isinstance(movie, dict):
+            continue
+        title = text(str(movie.get('title') or ''))
+        if not title:
+            continue
+        for screen in movie.get('screens') or []:
+            if not isinstance(screen, dict):
+                continue
+            for versions in screen.values():
+                if not isinstance(versions, list):
+                    continue
                 for version in versions:
-                    lang = (version.get('language') or {}).get('slug','')
-                    subtitle = (version.get('subtitles') or {})
-                    label = lang+' '+(subtitle.get('name','') if isinstance(subtitle,dict) else str(subtitle))
-                    for show in version.get('performances',[]):
-                        clock = show.get('actual_start_at') or show.get('starts_at','')[11:16]
-                        if not re.fullmatch(r'\d{2}:\d{2}',clock):
+                    if not isinstance(version, dict):
+                        continue
+                    language = version.get('language')
+                    audio = str(language.get('slug') or language.get('name') or '') if isinstance(language, dict) else ''
+                    subtitles = version.get('subtitles')
+                    if isinstance(subtitles, dict):
+                        subtitle = str(subtitles.get('name') or subtitles.get('slug') or '')
+                    elif isinstance(subtitles, str):
+                        subtitle = subtitles
+                    else:
+                        subtitle = ''
+                    label = ' '.join(part for part in (audio, subtitle) if part)
+                    for show in version.get('performances') or []:
+                        if not isinstance(show, dict):
                             continue
-                        row = screening(source,movie['title'],show['day'],clock,label,
-                                        urljoin('https://www.ucicinemas.it',show.get('cart_link','')),known)
-                        if lang.upper() not in ('ITA','IT','ITALIANO',''):
-                            row.update(classification='original',language=lang+' · originale',
-                                       evidence='Lingua della proiezione indicata da UCI: '+label)
-                        rows.append(row)
+                        day = show.get('day')
+                        if not isinstance(day, str) or not re.fullmatch(r'\d{4}-\d{2}-\d{2}', day):
+                            continue
+                        clock = show.get('actual_start_at')
+                        if not valid_clock(clock):
+                            starts_at = show.get('starts_at')
+                            clock = starts_at[11:16] if isinstance(starts_at, str) and len(starts_at) >= 16 else ''
+                        if not valid_clock(clock):
+                            continue
+                        rows.append(screening(
+                            source, title, day, clock, label,
+                            urljoin(UCI_BASE, str(show.get('cart_link') or '')), known,
+                            audio_lang=audio))
     return rows
 
 
 def load_uci(source, offset, known):
-    day=(date.today()+timedelta(days=offset)).isoformat()
-    return parse_uci(json.loads(fetch(UCI_API+'/theatres/uci-cinemas-megalo/programming/'+day)),source,known)
+    day = (rome_today() + timedelta(days=offset)).isoformat()
+    return parse_uci(json.loads(fetch(UCI_API + '/theatres/uci-cinemas-megalo/programming/' + day)), source, known)
+
+
+MANUAL_MESSAGES = {
+    'massimo': 'Programma settimanale sul sito Cityplex; la lingua per proiezione non è indicata. Verificare la versione sul sito o in biglietteria.',
+    'santandrea': 'Programma sul sito Cityplex; la lingua per proiezione non è indicata. Verificare la versione sul sito o in biglietteria.',
+    'space': 'Il sito ufficiale The Space non ha un adapter automatico attivo: verificare la programmazione sul sito.',
+}
+LOADERS = {'arca': load_multicinema, 'universo': load_multicinema, 'uci': load_uci}
+
+
+def source_statuses(now=None):
+    checked = rome_now(now).isoformat()
+    return [{**source, 'status': 'manual',
+             'message': MANUAL_MESSAGES.get(source['id'], 'Verifica manuale sul sito ufficiale.'),
+             'checkedAt': checked}
+            for source in SOURCES]
 
 
 def gather(refresh=False):
     global CACHE, CACHE_AT
     with LOCK:
-        if CACHE is not None and not refresh and time.monotonic()-CACHE_AT<600:
+        if CACHE is not None and not refresh and time.monotonic()-CACHE_AT<CACHE_TTL:
             return CACHE
         known=metadata()
         rows=[]
-        statuses={s['id']:{**s,'status':'manual','checkedAt':datetime.now().astimezone().isoformat(),
-                           'message':'Consultare il sito: integrazione automatica non ancora completata'} for s in SOURCES}
+        statuses={status['id']:status for status in source_statuses()}
         with ThreadPoolExecutor(max_workers=12) as pool:
             jobs={}
-            for source in SOURCES[:3]:
-                for offset in range(7):
-                    fn=load_uci if source['id']=='uci' else load_multicinema
-                    jobs[pool.submit(fn,source,offset,known)]=source
+            for source in SOURCES:
+                loader=LOADERS.get(source['id'])
+                if loader is None:
+                    continue
+                for offset in range(DAYS):
+                    jobs[pool.submit(loader,source,offset,known)]=source
             failures={}
             successes={}
             for future in as_completed(jobs):
@@ -160,15 +324,16 @@ def gather(refresh=False):
                     successes[source['id']]=successes.get(source['id'],0)+1
                 except Exception as exc:
                     failures.setdefault(source['id'],[]).append(str(exc))
-            for source in SOURCES[:3]:
-                sid=source['id']
-                status=statuses[sid]
-                status['status']='ok' if successes.get(sid)==7 else 'error'
-                status['message']=f"{successes.get(sid,0)}/7 giorni letti"
+            for sid in LOADERS:
+                status=statuses.get(sid)
+                if status is None:
+                    continue
+                status['status']='ok' if successes.get(sid)==DAYS else 'error'
+                status['message']=f"{successes.get(sid,0)}/{DAYS} giorni letti"
                 if sid in failures:
                     status['message']+='; '+failures[sid][0][:140]
         unique={r['id']:r for r in rows}
-        CACHE={'updatedAt':datetime.now().astimezone().isoformat(),
+        CACHE={'updatedAt':rome_now().isoformat(),
                'screenings':sorted(unique.values(),key=lambda r:(r['date'],r['time'],r['cinema'])),
                'sources':list(statuses.values()),
                'notes':['VERSIONE DI SVILUPPO: Massimo, Sant’Andrea e The Space richiedono verifica manuale.',
@@ -178,11 +343,41 @@ def gather(refresh=False):
         return CACHE
 
 
+def host_allowed(host, port):
+    if not isinstance(host, str):
+        return False
+    return host.strip().casefold() in {f'127.0.0.1:{port}', f'localhost:{port}'}
+
+
 class Handler(SimpleHTTPRequestHandler):
     def __init__(self,*args,**kwargs):
         super().__init__(*args,directory=str(ROOT/'web'),**kwargs)
 
+    def _host_ok(self):
+        return host_allowed(self.headers.get('Host'), self.server.server_port)
+
+    def _forbidden(self):
+        body=json.dumps({'error':'Host non consentito'},ensure_ascii=False).encode()
+        self.send_response(403)
+        self.send_header('Content-Type','application/json; charset=utf-8')
+        self.send_header('Content-Length',str(len(body)))
+        self.send_header('Cache-Control','no-store')
+        self.end_headers()
+        if self.command!='HEAD':
+            self.wfile.write(body)
+
+    def end_headers(self):
+        self.send_header('X-Content-Type-Options','nosniff')
+        super().end_headers()
+
+    def do_HEAD(self):
+        if not self._host_ok():
+            return self._forbidden()
+        return super().do_HEAD()
+
     def do_GET(self):
+        if not self._host_ok():
+            return self._forbidden()
         path=urlparse(self.path)
         if path.path=='/health':
             return self.json_response({'status':'ok','version':'0.1-draft'})
