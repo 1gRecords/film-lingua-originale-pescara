@@ -546,7 +546,7 @@ def gather(refresh=False):
                         'Sette giorni di programmazione; la nazionalità italiana non dimostra la lingua originale.'],
                'noteCodes':list(NOTE_CODES)}
         try:
-            tmdb.enrich(CACHE, key_path=TMDB_KEY_PATH)
+            tmdb.enrich(CACHE, key_path=TMDB_KEY_PATH, today=rome_today())
         except Exception:
             pass
         CACHE_AT=time.monotonic()

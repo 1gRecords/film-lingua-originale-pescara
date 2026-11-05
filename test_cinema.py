@@ -7,7 +7,7 @@ import copy
 import json
 import re
 import unittest
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 import cinema
 import tmdb
@@ -777,6 +777,23 @@ TMDB_DETAIL_IT_EMPTY = '''
  "vote_average": 7.786, "vote_count": 15891}
 '''
 
+TMDB_HUNGER_GAMES = '''
+{"page": 1, "results": [
+  {"id": 1024773,
+   "title": "Hunger Games - La ballata dell'usignolo e del serpente",
+   "original_title": "The Hunger Games: The Ballad of Songbirds & Snakes",
+   "release_date": "2023-11-15", "vote_average": 7.0, "vote_count": 3776}
+], "total_results": 1}
+'''
+
+TMDB_DETAIL_NO_VOTES = '''
+{"id": 1024773,
+ "title": "Hunger Games - La ballata dell'usignolo e del serpente",
+ "original_title": "The Hunger Games: The Ballad of Songbirds & Snakes",
+ "release_date": "2023-11-15", "overview": "Una trama.",
+ "vote_average": 0.0, "vote_count": 0}
+'''
+
 
 class TmdbTests(unittest.TestCase):
     """Inline TMDB JSON only; every transport is a local function."""
@@ -803,6 +820,7 @@ class TmdbTests(unittest.TestCase):
             'Dune (V.O.)': 'Dune',
             'Stray Kids … Lingua Originale': 'Stray Kids',
             'Rammstein – Lingua originale': 'Rammstein',
+            'Hunger Games C.A.': 'Hunger Games',
             'Dune - Parte 2': 'Dune - Parte 2',
         }
         for raw, expected in cases.items():
@@ -835,6 +853,37 @@ class TmdbTests(unittest.TestCase):
         match, reason = tmdb.select_match('Dune', no_date, 2021)
         self.assertIsNone(match)
         self.assertIn('year', reason)
+
+    def test_yearless_release_more_than_two_years_old_is_not_matched(self):
+        calls = []
+        payload = tmdb.enrich(self.payload('Hunger Games C.A.', year=None),
+                              token='test-token', cache={}, cache_path=None,
+                              overrides={},
+                              transport=self.fixture(calls, search=TMDB_HUNGER_GAMES),
+                              today=date(2026, 11, 5))
+        self.assertEqual(payload['tmdb']['films'], {})
+        self.assertNotIn('tmdbKey', payload['screenings'][0])
+        self.assertIn('2 years', next(iter(payload['tmdb']['misses'].values())))
+        self.assertTrue(any('query=Hunger+Games' in url for url in calls))
+
+    def test_yearless_recent_release_is_still_matched(self):
+        results = [{'id': 5, 'title': 'Dune', 'original_title': 'Dune',
+                    'release_date': '2026-10-01', 'vote_count': 100}]
+        match, reason = tmdb.select_match('Dune', results, today=date(2026, 11, 5))
+        self.assertEqual(match['id'], 5)
+
+    def test_dropping_old_results_does_not_create_a_single_result_match(self):
+        results = [
+            {'id': 1, 'title': 'Hunger Games', 'original_title': 'Hunger Games',
+             'release_date': '2012-03-23', 'vote_count': 20000},
+            {'id': 2, 'title': 'The Hunger Games: Sunrise on the Reaping',
+             'original_title': 'The Hunger Games: Sunrise on the Reaping',
+             'release_date': '2026-11-20', 'vote_count': 100},
+        ]
+        match, reason = tmdb.select_match('Hunger Games', results,
+                                          today=date(2026, 11, 5))
+        self.assertIsNone(match)
+        self.assertIn('no exact', reason)
 
     def test_ambiguous_exact_titles_show_nothing(self):
         results = [
@@ -893,6 +942,16 @@ class TmdbTests(unittest.TestCase):
         film = next(iter(payload['tmdb']['films'].values()))
         self.assertEqual(film['overviewIt'], '')
         self.assertIn('Paul Atreides', film['overviewEn'])
+
+    def test_zero_votes_hide_the_rating(self):
+        calls = []
+        payload = tmdb.enrich(self.payload(), token='test-token', cache={},
+                              cache_path=None, overrides={},
+                              transport=self.fixture(calls, detail_it=TMDB_DETAIL_NO_VOTES,
+                                                     detail_en=TMDB_DETAIL_NO_VOTES))
+        film = next(iter(payload['tmdb']['films'].values()))
+        self.assertEqual(film['votes'], 0)
+        self.assertIsNone(film['rating'])
 
     def test_override_id_skips_search(self):
         calls = []

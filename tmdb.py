@@ -6,6 +6,7 @@ Results are cached on disk so a refresh does not repeat TMDB calls.
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import date
 import json
 from pathlib import Path
 import re
@@ -22,7 +23,8 @@ OVERRIDES_PATH = ROOT / 'tmdb-overrides.json'
 API = 'https://api.themoviedb.org/3'
 SITE = 'https://www.themoviedb.org'
 CACHE_TTL = 30 * 24 * 60 * 60
-CACHE_VERSION = 1
+# Bump when matching rules change: cached matches from older rules must not survive.
+CACHE_VERSION = 2
 MAX_WORKERS = 4
 MIN_VOTE_COUNT = 50
 USER_AGENT = 'CinemaVO/0.1 (personal local cinema finder)'
@@ -32,7 +34,7 @@ _PAREN_SUFFIX = re.compile(
     r'v\.?\s?o\.?s?)\s*[\)\]]\s*$', re.I)
 _TEXT_SUFFIX = re.compile(
     r'(?:\s*[-–—:|]\s*|\s+)(?:lingua\s+originale|versione\s+originale|'
-    r'original\s+version|v\.?\s?o\.?s?)\s*$', re.I)
+    r'original\s+version|v\.?\s?o\.?s?|c\.\s?a\.)\s*$', re.I)
 
 
 class TmdbError(Exception):
@@ -84,12 +86,34 @@ def cache_key(cleaned, year=None, override=None):
     return f'{key}|ov:{override}' if override is not None else key
 
 
+def parse_release_date(item):
+    match = re.match(r'\s*(\d{4})-(\d{2})-(\d{2})',
+                     str((item or {}).get('release_date') or ''))
+    if not match:
+        return None
+    try:
+        return date(*map(int, match.groups()))
+    except ValueError:
+        return None
+
+
 def release_year(item):
-    match = re.match(r'\s*(\d{4})', str((item or {}).get('release_date') or ''))
-    return int(match.group(1)) if match else None
+    released = parse_release_date(item)
+    return released.year if released else None
 
 
-def select_match(cleaned, results, year=None):
+def released_too_long_ago(item, today, years=2):
+    released = parse_release_date(item)
+    if released is None or today is None:
+        return False
+    try:
+        cutoff = today.replace(year=today.year - years)
+    except ValueError:
+        cutoff = today.replace(year=today.year - years, day=28)
+    return released < cutoff
+
+
+def select_match(cleaned, results, year=None, today=None):
     """Return (candidate, reason) and never guess between two exact titles."""
     target = normalize_title(cleaned)
     usable = [item for item in (results or []) if isinstance(item, dict)]
@@ -97,6 +121,12 @@ def select_match(cleaned, results, year=None):
         return None, 'empty title'
     if not usable:
         return None, 'no results'
+    original_count = len(usable)
+    if year is None and today is not None:
+        recent = [item for item in usable if not released_too_long_ago(item, today)]
+        if not recent:
+            return None, 'released more than 2 years before today'
+        usable = recent
     exact = [item for item in usable
              if target in (normalize_title(item.get('title')),
                            normalize_title(item.get('original_title')))]
@@ -111,7 +141,7 @@ def select_match(cleaned, results, year=None):
         return exact[0], 'exact'
     if len(exact) > 1:
         return None, 'ambiguous: multiple exact titles'
-    if len(usable) != 1:
+    if original_count != 1:
         return None, 'no exact title match'
     only = usable[0]
     only_year = release_year(only)
@@ -282,6 +312,9 @@ class TmdbClient:
         votes = italian.get('vote_count', english.get('vote_count'))
         if isinstance(votes, bool) or not isinstance(votes, (int, float)):
             votes = 0
+        votes = int(votes)
+        if votes <= 0:
+            rating = None
         overview_it = italian.get('overview')
         overview_en = english.get('overview')
         return {
@@ -290,17 +323,17 @@ class TmdbClient:
             'originalTitle': value('original_title'),
             'year': parse_year(value('release_date')),
             'rating': round(float(rating), 1) if rating is not None else None,
-            'votes': int(votes),
+            'votes': votes,
             'overviewIt': overview_it.strip() if isinstance(overview_it, str) else '',
             'overviewEn': overview_en.strip() if isinstance(overview_en, str) else '',
             'url': f'{SITE}/movie/{film_id}',
         }
 
-    def resolve(self, cleaned, year=None, override=None):
+    def resolve(self, cleaned, year=None, override=None, today=None):
         if override is not None:
             return self.details(override), 'override'
         results = self.search(cleaned, year)
-        match, reason = select_match(cleaned, results, year)
+        match, reason = select_match(cleaned, results, year, today)
         if match is None:
             return None, reason
         return self.details(match['id']), 'found'
@@ -308,7 +341,7 @@ class TmdbClient:
 
 def enrich(payload, key_path=KEY_PATH, cache_path=CACHE_PATH,
            overrides_path=OVERRIDES_PATH, transport=None, token=None,
-           cache=None, overrides=None, now=None):
+           cache=None, overrides=None, now=None, today=None):
     """Attach tmdb.films and screening.tmdbKey; never raise to the caller."""
     if not isinstance(payload, dict):
         return payload
@@ -320,6 +353,7 @@ def enrich(payload, key_path=KEY_PATH, cache_path=CACHE_PATH,
         if not isinstance(rows, list) or not rows:
             return payload
         current = time.time() if now is None else float(now)
+        today = date.today() if today is None else today
         overrides = (load_overrides(overrides_path) if overrides is None
                      else normalize_overrides(overrides))
         entries = cache if isinstance(cache, dict) else (
@@ -369,7 +403,7 @@ def enrich(payload, key_path=KEY_PATH, cache_path=CACHE_PATH,
 
         if pending:
             with ThreadPoolExecutor(max_workers=MAX_WORKERS) as pool:
-                jobs = {pool.submit(client.resolve, cleaned, year, override):
+                jobs = {pool.submit(client.resolve, cleaned, year, override, today):
                         (lookup, cleaned, year)
                         for lookup, cleaned, year, override in pending}
                 for future in as_completed(jobs):

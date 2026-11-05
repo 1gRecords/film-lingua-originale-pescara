@@ -28,8 +28,10 @@ La valutazione TMDB e la trama breve sono facoltative. Per attivarle, salva in `
 
 Se il file manca o è vuoto, l’app funziona come prima: orari, lingue e fonti restano, ma non compaiono valutazioni e trame.
 
-- La ricerca parte dal titolo del cinema ripulito da suffissi come “- Lingua originale” e “(VO)”. Il confronto ignora maiuscole, accenti e punteggiatura.
+- La ricerca parte dal titolo del cinema ripulito da suffissi come “- Lingua originale”, “(VO)” e “C.A.”. Il confronto ignora maiuscole, accenti e punteggiatura.
 - Si accetta un solo risultato con titolo o titolo originale identico e anno entro un anno, quando l’anno è noto. In alternativa serve un unico risultato con almeno 50 voti. In caso di ambiguità non compare nulla: meglio nessun dato che il film sbagliato.
+- Se la fonte non dà l’anno, i risultati usciti da più di due anni sono scartati: un vecchio film riproposto richiede `tmdb-overrides.json`.
+- Se TMDB riporta zero voti, la valutazione non compare; la trama resta se c’è.
 - `tmdb-overrides.json` corregge o blocca un abbinamento. La chiave è il titolo ripulito; il valore è l’id TMDB, oppure `null` per non mostrare nulla:
 
 ```json
