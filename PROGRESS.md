@@ -4,7 +4,7 @@
 
 **Acceptance for this handover:** every command, link and "Expected" line from the supplied plan is present; all six revised steps are unchecked; no plan step has been run; `git log` contains a commit named "Handover snapshot" (or the missing git identity is reported).
 
-**State:** Steps 1–5 of 6 complete. Step 1 (2026-11-04): backend correctness and tests. Step 2 (2026-11-05): live run and source audit; server stopped afterwards; no installs or deletes. Step 3 (2026-11-05): Cityplex has no per-screening language token; both venues stay `manual` with date-free messages and no parser. Step 4 (2026-11-05): The Space official adapter live, `7/7 giorni letti`, 46 offline tests passing, server stopped afterwards. Step 5 (2026-11-05): frontend null/notes/driveMinutes guards, display-only title normalization, explicit loading state, all states and both widths verified; no backend data changed; server stopped afterwards. Step 6 not started. Tracking applies to the six revised steps; the earlier five-step table is kept as history and is not tracked.
+**State:** Steps 1–6 of 6 complete. Step 1 (2026-11-04): backend correctness and tests. Step 2 (2026-11-05): live run and source audit; server stopped afterwards; no installs or deletes. Step 3 (2026-11-05): Cityplex has no per-screening language token; both venues stay `manual` with date-free messages and no parser. Step 4 (2026-11-05): The Space official adapter live, `7/7 giorni letti`, 46 offline tests passing, server stopped afterwards. Step 5 (2026-11-05): frontend null/notes/driveMinutes guards, display-only title normalization, explicit loading state, all states and both widths verified; no backend data changed; server stopped afterwards. Step 6 (2026-11-05): README, launcher, run script and final acceptance; 46 tests, 4 live sources, 2 manual, launcher opened Firefox, server stopped afterwards. Tracking applies to the six revised steps; the earlier five-step table is kept as history and is not tracked.
 
 **Rule:** Whenever a plan step finishes, tick its single checkbox and replace that step's Evidence line with the command and observed result. Unverified work does not get evidence.
 
@@ -15,6 +15,7 @@
 - Step 3 of 6: Cityplex condition check. See its Evidence line below.
 - Step 4 of 6: The Space official adapter. See its Evidence line below.
 - Step 5 of 6: frontend fields, safe rendering and all states. See its Evidence line below.
+- Step 6 of 6: README, launcher, run script, final report. See its Evidence line below.
 
 ## PLAN (copied in full)
 
@@ -275,8 +276,8 @@ Then open `http://127.0.0.1:8765/` for the click-through checklist. If Chrome De
 
 ### 6. README, launcher, run script, final report
 
-- [ ] **Step 6 of 6 — README, launcher, run script, final report**
-  **Evidence:** _Not started; no command from this step has been run._
+- [x] **Step 6 of 6 — README, launcher, run script, final report**
+  **Evidence:** 2026-11-05. `python -B -m unittest -v test_cinema` → `Ran 46 tests in 0.024s` / `OK`, exit 0. `node --check web/app.js` → exit 0. `cmd /c "Avvia Cinema.cmd"` → launcher printed `Cinema VO: http://127.0.0.1:8765`; `/health` returned HTTP 200 `{"status":"ok","version":"0.1-draft"}`; the Firefox window title became `Voci originali · Cinema a Pescara — Mozilla Firefox`; launcher log showed the browser's `GET /` 304 (cached shell), `/health` 200 and `/api/screenings` 200; server stopped afterwards (0 listeners, 0 `cinema.py` processes). `py -3 -B cinema.py --no-browser --port 8766` → `/health` 200; stopped. `bash pandacode-run.sh` (WSL, `python3` fallback) → `/health` 200 on 8765; stopped. `/api/screenings` 200 in 2.34s; `?refresh=1` 200 in 1.79s, `updatedAt` `2026-11-05T17:19:57.580426+01:00`; 722 rows: `italian` 182, `unknown` 527, `original` 13, `dubbed` 0. Live counts drifted from step 4's 185/529/13/0; the 13 originals and 0 dubbed held. Sources: `arca`, `universo`, `uci`, `space` `ok` `7/7 giorni letti`; `massimo`, `santandrea` `manual`; no Cityplex rows; Space 231 rows; evil Host 403, `localhost:8765` 200. Chrome 156 at 1280: clientWidth 1265 = scrollWidth 1265, 0 elements past the edge; at 390: 390 = 390, 0 past; confirmed 195, unknown 520, search `wild horse` 10, date 5 Nov 22, cinema Space 59, Italian toggle 195→13→195, empty state 0; forced `/api/screenings` failure showed `Non riesco a caricare gli orari` + `Riprova adesso`, and retry recovered 194 rows. `README.md` is Italian, 72 lines, 6 cinemas (4 live, 2 manual), states the coverage gap and omits volatile exact counts; `Avvia Cinema.cmd` unchanged (check passed); `pandacode-run.sh` is LF-only, `bash -n` OK, declares `http://127.0.0.1:8765`. Server stopped at the end (0 listeners on 8765/8766, 0 `cinema.py` processes).
 
 **Files:** `README.md` (new), `Avvia Cinema.cmd` (check; edit only if the check fails), `pandacode-run.sh` (new), `SOURCES.md` if not already updated.
 
@@ -325,16 +326,28 @@ The revised plan is six steps, within the limit. Step 4 is the critique-driven a
 
 ## Next
 
-1. Steps 1–5 are complete and evidenced. Do not start step 6 without a new instruction.
+1. All six steps are complete and evidenced. No further step is planned; the remaining work is listed under Open issues.
+
+## Open issues
+
+- Massimo and Sant’Andrea stay `manual`: the Cityplex site has no per-screening language marker, so no parser can confirm their language. Users must check the venue.
+- UCI non-Italian audio stays `unknown` without verified metadata, so a real original-language screening can appear under “Da verificare”. The conservative rule is intentional.
+- Coverage is not complete. Asterope in Francavilla al Mare and other nearby venues are not sources; the app covers the six named cinemas only.
+- Driving times are fixed estimates from central Pescara, with no live traffic or 30-minute isochrone. Universo is exactly at the 30-minute boundary.
+- Italian-original recognition depends on four hand-verified overrides in `language-overrides.json`; new Italian originals stay `unknown` until added, and ambiguous titles are rejected.
+- `cinema.py`’s module docstring still calls the app a draft “not yet tested end to end”. It is stale after steps 1–6 and was left unchanged because step 6 did not touch backend code.
+- Browser, layout and API-failure checks were run ad hoc through Chrome CDP; no committed end-to-end browser test exists.
+- If port 8765 is busy, `Avvia Cinema.cmd` ends with a raw Python traceback and `pause`. The README documents `--port`; the launcher message is not friendly.
 
 ## Open questions
 
 - None for step 4. The plan’s 2026-11-04 Fast and Furious/Rammstein expectations could not be replayed on 2026-11-05 because the programme changed; the step 4 Evidence records what was measured.
 - None for step 5. The 60-second fetch timeout was not changed because the measured refresh was 1.49–1.92s; the visible loading status was added anyway.
+- None for step 6. The live counts moved slightly between steps 4 and 6, so the README does not pin exact daily counts.
 
 ## Key facts
 
 - Repo root: `C:\DEV\Cinema`. Git 2.55.0.windows.4. No `.git` existed before this handover.
 - `PROGRESS.md` did not exist before this file. `.gitignore` excludes `__pycache__/`, `*.pyc`, `.cache/`.
-- The plan's findings and "Expected" lines are claims from the 2026-11-04 handover; this session re-measured none of them.
-- Only the handover operations were run: file creation, `git init`, `git add -A`, `git commit -m "Handover snapshot"`. No plan command was executed.
+- The plan's findings and "Expected" lines are claims from the 2026-11-04 handover. Steps 1–6 re-measured the parts they exercised; the Step 2 and Step 6 Evidence lines record the live results.
+- At handover, only the handover operations were run: file creation, `git init`, `git add -A`, `git commit -m "Handover snapshot"`. No plan command was executed then.
