@@ -8,6 +8,8 @@ Trova le proiezioni in lingua originale vicino a Pescara, entro circa 30 minuti 
 2. Il browser si apre su `http://127.0.0.1:8765`.
 3. Scegli una data, un cinema o scrivi il titolo. La scheda “Lingua confermata” mostra solo le proiezioni con una prova della lingua originale. La scheda “Da verificare” raccoglie le altre.
 
+Il sito parte in italiano. Il selettore in alto (`🇮🇹 IT` / `🇬🇧 EN`) passa all’inglese e ricorda la scelta nel browser. Titoli dei film e nomi dei cinema restano nella lingua della fonte.
+
 Serve Python 3.10 o successivo. Non servono pacchetti aggiuntivi, account o chiavi. Il programma resta su questo computer e ascolta solo su `127.0.0.1`.
 
 Il pulsante “Aggiorna gli orari” rilegge i siti dei cinema. I dati restano in memoria per 10 minuti. Per forzare una lettura si può aprire `http://127.0.0.1:8765/api/screenings?refresh=1`.
@@ -63,10 +65,11 @@ La copertura non è completa. Asterope a Francavilla al Mare, per esempio, non �
 ```json
 {
   "updatedAt": "2026-11-05T15:00:36+01:00",
-  "screenings": [{"id": "…", "title": "…", "cinemaId": "…", "cinema": "…", "city": "…", "date": "2026-11-05", "time": "19:00", "language": "…", "classification": "original", "evidence": "…", "sourceUrl": "https://…", "bookingUrl": "https://…", "driveMinutes": 25}],
-  "sources": [{"id": "…", "name": "…", "url": "https://…", "status": "ok", "message": "…", "checkedAt": "…", "driveMinutes": 25}],
-  "notes": ["…"]
+  "screenings": [{"id": "…", "title": "…", "cinemaId": "…", "cinema": "…", "city": "…", "date": "2026-11-05", "time": "19:00", "language": "…", "languageCode": "language.original", "classification": "original", "evidence": "…", "evidenceCode": "evidence.original.label", "evidenceParams": {"label": "…"}, "sourceUrl": "https://…", "bookingUrl": "https://…", "driveMinutes": 25}],
+  "sources": [{"id": "…", "name": "…", "url": "https://…", "status": "ok", "message": "…", "messageCode": "source.ok", "messageParams": {"days": 7, "total": 7}, "checkedAt": "…", "driveMinutes": 25}],
+  "notes": ["…"],
+  "noteCodes": ["notes.dev", "notes.drive", "notes.sevenDays"]
 }
 ```
 
-`classification` vale `original`, `italian`, `unknown` o `dubbed`; solo i primi due entrano in “Lingua confermata”. Il server espone anche i file statici da `web/`.
+`classification` vale `original`, `italian`, `unknown` o `dubbed`; solo i primi due entrano in “Lingua confermata”. `languageCode`, `evidenceCode`, `messageCode` e `noteCodes` sono codici stabili usati dal frontend per la traduzione; i campi `language`, `evidence`, `message` e `notes` restano in italiano. `evidenceParams` e `messageParams` contengono i valori da inserire nei testi. Il server espone anche i file statici da `web/`.

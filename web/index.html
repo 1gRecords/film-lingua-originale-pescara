@@ -4,52 +4,58 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#f7f3e9">
-  <meta name="description" content="Proiezioni in lingua originale a Pescara e dintorni. Orari, fonti e indicazioni, senza film doppiati.">
+  <meta name="description" content="Proiezioni in lingua originale a Pescara e dintorni. Orari, fonti e indicazioni, senza film doppiati." data-i18n-content="meta.description">
   <title>Voci originali · Cinema a Pescara</title>
   <link rel="stylesheet" href="/style.css">
   <script src="/app.js" defer></script>
 </head>
 <body>
-  <a class="skip" href="#results">Vai ai risultati</a>
+  <a class="skip" href="#results" data-i18n="nav.skip">Vai ai risultati</a>
   <main class="page">
     <header class="masthead">
       <div class="brand"><span class="reel" aria-hidden="true">◉</span> CINEMA / PESCARA</div>
-      <span class="radius">Entro circa 30 min in auto</span>
+      <div class="masthead-tools">
+        <span class="radius" data-i18n="masthead.radius">Entro circa 30 min in auto</span>
+        <div class="lang-switch" role="group" aria-label="Lingua del sito" data-i18n-aria-label="language.group">
+          <button type="button" class="lang-option" data-lang="it" aria-pressed="true">🇮🇹 IT</button>
+          <button type="button" class="lang-option" data-lang="en" aria-pressed="false">🇬🇧 EN</button>
+        </div>
+      </div>
     </header>
     <section class="intro" aria-labelledby="title">
       <div>
-        <p class="edition">Le voci sono quelle del film.</p>
-        <h1 id="title">Voci originali<span>.</span></h1>
-        <p class="description">Trova le proiezioni in lingua originale vicino a Pescara, compresi i film italiani. I film doppiati sono esclusi.</p>
+        <p class="edition" data-i18n="intro.edition">Le voci sono quelle del film.</p>
+        <h1 id="title"><span class="title-text" data-i18n="app.title">Voci originali</span><span class="title-dot">.</span></h1>
+        <p class="description" data-i18n="intro.description">Trova le proiezioni in lingua originale vicino a Pescara, compresi i film italiani. I film doppiati sono esclusi.</p>
       </div>
       <div class="update-block">
-        <button id="refresh" class="primary" type="button"><span aria-hidden="true">↻</span> Aggiorna gli orari</button>
+        <button id="refresh" class="primary" type="button"><span class="icon" aria-hidden="true">↻</span><span class="button-label" data-i18n="refresh.button">Aggiorna gli orari</span></button>
         <p id="updated">Collegamento alle programmazioni…</p>
       </div>
     </section>
-    <section class="finder" aria-label="Filtra le proiezioni">
-      <div class="search-field"><label for="search">Cerca un film</label><input type="search" id="search" placeholder="Titolo del film…" autocomplete="off"></div>
-      <div><label for="date">Quando</label><select id="date"><option value="">Tutte le date</option></select></div>
-      <div><label for="cinema">Dove</label><select id="cinema"><option value="">Tutti i cinema</option></select></div>
-      <label class="check"><input type="checkbox" id="include-italian" checked><span>Includi gli originali italiani</span></label>
+    <section class="finder" aria-label="Filtra le proiezioni" data-i18n-aria-label="finder.label">
+      <div class="search-field"><label for="search" data-i18n="search.label">Cerca un film</label><input type="search" id="search" placeholder="Titolo del film…" data-i18n-placeholder="search.placeholder" autocomplete="off"></div>
+      <div><label for="date" data-i18n="date.label">Quando</label><select id="date"><option value="" data-i18n="date.all">Tutte le date</option></select></div>
+      <div><label for="cinema" data-i18n="cinema.label">Dove</label><select id="cinema"><option value="" data-i18n="cinema.all">Tutti i cinema</option></select></div>
+      <label class="check"><input type="checkbox" id="include-italian" checked><span data-i18n="italian.toggle">Includi gli originali italiani</span></label>
     </section>
     <div class="results-top">
-      <div class="tabs" role="tablist" aria-label="Affidabilità della lingua">
-        <button id="confirmed-tab" class="tab active" type="button" role="tab" aria-selected="true" aria-controls="results">Lingua confermata <span id="confirmed-count">—</span></button>
-        <button id="unknown-tab" class="tab" type="button" role="tab" aria-selected="false" aria-controls="results">Da verificare <span id="unknown-count">—</span></button>
+      <div class="tabs" role="tablist" aria-label="Affidabilità della lingua" data-i18n-aria-label="tabs.label">
+        <button id="confirmed-tab" class="tab active" type="button" role="tab" aria-selected="true" aria-controls="results"><span data-i18n="tab.confirmed">Lingua confermata</span> <span id="confirmed-count">—</span></button>
+        <button id="unknown-tab" class="tab" type="button" role="tab" aria-selected="false" aria-controls="results"><span data-i18n="tab.unknown">Da verificare</span> <span id="unknown-count">—</span></button>
       </div>
       <p id="result-count" aria-live="polite"></p>
     </div>
     <p id="load-status" class="load-status" role="status" aria-live="polite" hidden></p>
-    <p id="mode-note" class="mode-note">Qui trovi solo proiezioni con indicazioni di lingua originale nella fonte.</p>
-    <section id="results" class="results" aria-label="Proiezioni" aria-busy="true" tabindex="-1"><div class="notice"><span class="loading-dot" aria-hidden="true"></span><h2>Controllo i cinema vicini</h2><p>Raccolgo gli orari disponibili e le indicazioni sulla lingua.</p></div></section>
+    <p id="mode-note" class="mode-note" data-i18n="mode.confirmed">Qui trovi solo proiezioni con indicazioni di lingua originale nella fonte.</p>
+    <section id="results" class="results" aria-label="Proiezioni" data-i18n-aria-label="results.label" aria-busy="true" tabindex="-1"><div class="notice"><span class="loading-dot" aria-hidden="true"></span><h2 data-i18n="loading.title">Controllo i cinema vicini</h2><p data-i18n="loading.body">Raccolgo gli orari disponibili e le indicazioni sulla lingua.</p></div></section>
     <section class="coverage" aria-labelledby="coverage-title">
-      <div class="coverage-heading"><h2 id="coverage-title">Le fonti, senza sorprese.</h2><span id="source-summary">In aggiornamento</span></div>
-      <p class="coverage-description">La lingua viene verificata sulle indicazioni delle singole proiezioni. Una produzione italiana, da sola, non prova che l’audio sia originale. Se un sito non risponde, lo trovi segnalato qui.</p>
+      <div class="coverage-heading"><h2 id="coverage-title" data-i18n="coverage.title">Le fonti, senza sorprese.</h2><span id="source-summary">In aggiornamento</span></div>
+      <p class="coverage-description" data-i18n="coverage.description">La lingua viene verificata sulle indicazioni delle singole proiezioni. Una produzione italiana, da sola, non prova che l’audio sia originale. Se un sito non risponde, lo trovi segnalato qui.</p>
       <div id="sources" class="source-list"></div>
       <div id="notes" class="data-notes"></div>
     </section>
-    <footer><p>Pescara e dintorni · Nessun account, nessuna installazione di pacchetti.</p><p>I tempi in auto sono stime dal centro di Pescara, senza traffico in tempo reale. Controlla lingua e orario sul sito del cinema prima di partire.</p></footer>
+    <footer><p data-i18n="footer.about">Pescara e dintorni · Nessun account, nessuna installazione di pacchetti.</p><p data-i18n="footer.times">I tempi in auto sono stime dal centro di Pescara, senza traffico in tempo reale. Controlla lingua e orario sul sito del cinema prima di partire.</p></footer>
   </main>
 </body>
 </html>

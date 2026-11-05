@@ -120,7 +120,7 @@ class SpaceClient:
                 self._prime()
                 payload = self._get(url)
             if len(payload) > 3_000_000:
-                raise ValueError('The Space: risposta troppo grande')
+                raise ValueError('The Space: response too large')
             return json.loads(payload)
 
 
@@ -198,7 +198,7 @@ def canonical_language(value):
     return LANGUAGE_CODES.get(token, token)
 
 
-def classify(label, title='', known=None, audio_lang=None, year=None):
+def classify_details(label, title='', known=None, audio_lang=None, year=None):
     """A nationality is never accepted as proof of original language."""
     label = text(label).casefold() if label else ''
     audio = canonical_language(audio_lang)
@@ -207,25 +207,49 @@ def classify(label, title='', known=None, audio_lang=None, year=None):
     verified = canonical_language(entry.get('language')) if entry else ''
     verified_known = verified if verified in LANGUAGE_NAMES else ''
     verified_name = LANGUAGE_NAMES.get(verified, text(str(entry.get('language') or '')) if entry else '')
-    title_only = ' (anno non disponibile)' if entry and year is None else ''
+    title_only = bool(entry) and year is None
+    year_note = ' (anno non disponibile)' if title_only else ''
+
+    def details(classification, language, evidence, language_code, evidence_code, params):
+        return {'classification': classification, 'language': language, 'evidence': evidence,
+                'languageCode': language_code, 'evidenceCode': evidence_code,
+                'evidenceParams': params}
 
     if DUBBED_LABEL.search(label):
-        return 'dubbed', 'Doppiato', 'La fonte indica una versione doppiata' + (': ' + label if label else '')
+        return details('dubbed', 'Doppiato',
+                       'La fonte indica una versione doppiata' + (': ' + label if label else ''),
+                       'language.dubbed', 'evidence.dubbed.label', {'label': label})
     if verified_known and audio_known and verified_known != audio_known:
-        return ('dubbed', 'Doppiato',
-                f'Film in {verified_name}; la proiezione è in {LANGUAGE_NAMES[audio_known]}: versione doppiata.')
+        return details('dubbed', 'Doppiato',
+                       f'Film in {verified_name}; la proiezione è in {LANGUAGE_NAMES[audio_known]}: versione doppiata.',
+                       'language.dubbed', 'evidence.dubbed.audio',
+                       {'filmLanguage': verified_known, 'audioLanguage': audio_known})
     if verified_known == 'it':
         evidence = text(str(entry.get('evidence') or 'Lingua originale italiana verificata'))
-        return 'italian', 'Italiano', evidence + title_only
+        return details('italian', 'Italiano', evidence + year_note,
+                       'language.italian', 'evidence.italian.metadata',
+                       {'sourceEvidence': evidence, 'titleOnly': title_only})
     if verified_known and audio_known and verified_known == audio_known:
-        return ('original', verified_name,
-                f'Lingua originale verificata ({verified_name}) e audio della proiezione coerente.' + title_only)
+        return details('original', verified_name,
+                       f'Lingua originale verificata ({verified_name}) e audio della proiezione coerente.' + year_note,
+                       'language.' + verified_known, 'evidence.original.verified',
+                       {'language': verified_known, 'titleOnly': title_only})
     if ORIGINAL_LABEL.search(label):
-        return 'original', 'Versione originale', 'Indicazione esplicita nella fonte: ' + label
+        return details('original', 'Versione originale',
+                       'Indicazione esplicita nella fonte: ' + label,
+                       'language.original', 'evidence.original.label', {'label': label})
     if audio_known:
-        return ('unknown', 'Lingua da verificare',
-                f'Audio indicato dalla fonte: {LANGUAGE_NAMES[audio_known]}; lingua originale non verificata.')
-    return 'unknown', 'Lingua da verificare', 'Nessuna indicazione esplicita di versione originale'
+        return details('unknown', 'Lingua da verificare',
+                       f'Audio indicato dalla fonte: {LANGUAGE_NAMES[audio_known]}; lingua originale non verificata.',
+                       'language.unknown', 'evidence.unknown.audio', {'language': audio_known})
+    return details('unknown', 'Lingua da verificare',
+                   'Nessuna indicazione esplicita di versione originale',
+                   'language.unknown', 'evidence.unknown.none', {})
+
+
+def classify(label, title='', known=None, audio_lang=None, year=None):
+    found = classify_details(label, title, known, audio_lang, year)
+    return found['classification'], found['language'], found['evidence']
 
 
 def http_url(value, fallback=''):
@@ -239,13 +263,16 @@ def http_url(value, fallback=''):
 
 def screening(source, title, day, clock, label='', booking='', known=None,
               audio_lang=None, year=None, source_url=None):
-    category, language, evidence = classify(label, title, known, audio_lang, year)
-    key = '|'.join((source['id'], title, day, clock, category))
+    found = classify_details(label, title, known, audio_lang, year)
+    key = '|'.join((source['id'], title, day, clock, found['classification']))
     link = http_url(source_url, '') or http_url(source.get('url'), '')
     return {'id':hashlib.sha1(key.encode()).hexdigest()[:16], 'title':title,
             'cinemaId':source['id'], 'cinema':source['name'], 'city':source['city'],
-            'date':day, 'time':clock, 'language':language, 'classification':category,
-            'evidence':evidence, 'sourceUrl':link,
+            'date':day, 'time':clock, 'language':found['language'],
+            'classification':found['classification'], 'evidence':found['evidence'],
+            'languageCode':found['languageCode'], 'evidenceCode':found['evidenceCode'],
+            'evidenceParams':found['evidenceParams'],
+            'sourceUrl':link,
             'bookingUrl':http_url(booking, link), 'driveMinutes':source['driveMinutes']}
 
 
@@ -275,6 +302,7 @@ def parse_multicinema(raw, source, day, known):
                             urljoin(source['url'], html.unescape(heading.group(1))), known)
             if language_note:
                 row['evidence'] += ' (nota della scheda giornaliera, valida per tutti gli orari della stessa scheda).'
+                row['evidenceParams']['dailyNote'] = True
             rows.append(row)
     return rows
 
@@ -390,13 +418,13 @@ def space_labels(session):
 
 def parse_space(payload, source, known):
     if not isinstance(payload, dict):
-        raise ValueError('The Space: risposta non è un oggetto JSON')
+        raise ValueError('The Space: response is not a JSON object')
     message = payload.get('errorMessage')
     if message:
         raise ValueError('The Space: ' + text(str(message)))
     films = payload.get('result')
     if not isinstance(films, list):
-        raise ValueError('The Space: campo result assente o non valido')
+        raise ValueError('The Space: result field missing or invalid')
     rows = []
     for film in films:
         if not isinstance(film, dict):
@@ -408,7 +436,7 @@ def parse_space(payload, source, known):
         if groups is None:
             continue
         if not isinstance(groups, list):
-            raise ValueError(f'The Space: showingGroups non valido per {title}')
+            raise ValueError(f'The Space: invalid showingGroups for {title}')
         link = http_url(film.get('filmUrl'), '')
         year = space_year(film)
         for group in groups:
@@ -418,7 +446,7 @@ def parse_space(payload, source, known):
             if sessions is None:
                 continue
             if not isinstance(sessions, list):
-                raise ValueError(f'The Space: sessions non valide per {title}')
+                raise ValueError(f'The Space: invalid sessions for {title}')
             for session in sessions:
                 if not isinstance(session, dict):
                     continue
@@ -448,6 +476,11 @@ MANUAL_MESSAGES = {
     'massimo': 'Il sito elenca titoli, date e orari ma non la lingua per proiezione. Verificare la versione sul sito o in biglietteria.',
     'santandrea': 'Il sito Cityplex elenca titoli, date e orari ma non la lingua per proiezione. Verificare la versione sul sito o in biglietteria.',
 }
+MANUAL_CODES = {
+    'massimo': 'source.manual.generic',
+    'santandrea': 'source.manual.cityplex',
+}
+NOTE_CODES = ['notes.dev', 'notes.drive', 'notes.sevenDays']
 LOADERS = {'arca': load_multicinema, 'universo': load_multicinema, 'uci': load_uci,
            'space': load_space}
 
@@ -456,7 +489,9 @@ def source_statuses(now=None):
     checked = rome_now(now).isoformat()
     return [{**source, 'status': 'manual',
              'message': MANUAL_MESSAGES.get(source['id'], 'Verifica manuale sul sito ufficiale.'),
-             'checkedAt': checked}
+             'checkedAt': checked,
+             'messageCode': MANUAL_CODES.get(source['id'], 'source.manual.default'),
+             'messageParams': {}}
             for source in SOURCES]
 
 
@@ -490,17 +525,23 @@ def gather(refresh=False):
                 status=statuses.get(sid)
                 if status is None:
                     continue
-                status['status']='ok' if successes.get(sid)==DAYS else 'error'
-                status['message']=f"{successes.get(sid,0)}/{DAYS} giorni letti"
+                days=successes.get(sid,0)
+                status['status']='ok' if days==DAYS else 'error'
+                status['message']=f"{days}/{DAYS} giorni letti"
+                status['messageCode']='source.ok' if days==DAYS else 'source.error'
+                status['messageParams']={'days':days,'total':DAYS}
                 if sid in failures:
-                    status['message']+='; '+failures[sid][0][:140]
+                    reason=failures[sid][0][:140]
+                    status['message']+='; '+reason
+                    status['messageParams']['reason']=reason
         unique={r['id']:r for r in rows}
         CACHE={'updatedAt':rome_now().isoformat(),
                'screenings':sorted(unique.values(),key=lambda r:(r['date'],r['time'],r['cinema'])),
                'sources':list(statuses.values()),
                'notes':['VERSIONE DI SVILUPPO: Massimo e Sant’Andrea richiedono verifica manuale.',
                         'Tempi di guida stimati dal centro di Pescara; non sono misure del traffico attuale.',
-                        'Sette giorni di programmazione; la nazionalità italiana non dimostra la lingua originale.']}
+                        'Sette giorni di programmazione; la nazionalità italiana non dimostra la lingua originale.'],
+               'noteCodes':list(NOTE_CODES)}
         CACHE_AT=time.monotonic()
         return CACHE
 

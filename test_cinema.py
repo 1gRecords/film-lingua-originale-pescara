@@ -491,6 +491,7 @@ class ContractTests(unittest.TestCase):
     ROW_KEYS = {
         'id', 'title', 'cinemaId', 'cinema', 'city', 'date', 'time', 'language',
         'classification', 'evidence', 'sourceUrl', 'bookingUrl', 'driveMinutes',
+        'languageCode', 'evidenceCode', 'evidenceParams',
     }
 
     def test_screening_row_has_every_contract_field(self):
@@ -507,7 +508,7 @@ class ContractTests(unittest.TestCase):
         status = cinema.source_statuses(now=datetime(2026, 11, 4, 12, 0, tzinfo=timezone.utc))[0]
         self.assertEqual(set(status), {
             'id', 'name', 'city', 'driveMinutes', 'url',
-            'status', 'message', 'checkedAt',
+            'status', 'message', 'checkedAt', 'messageCode', 'messageParams',
         })
         self.assertEqual(status['checkedAt'], '2026-11-04T13:00:00+01:00')
 
@@ -526,6 +527,102 @@ class ContractTests(unittest.TestCase):
         self.assertEqual(status['url'],
                          'https://www.thespacecinema.it/cinema/montesilvano/al-cinema')
         self.assertEqual(status['driveMinutes'], 25)
+
+
+class TranslationCodeTests(unittest.TestCase):
+    """Every displayed backend message keeps its Italian text and adds a code."""
+
+    def row(self, **kwargs):
+        return cinema.screening(TEST_SOURCE, kwargs.pop('title', 'Sconosciuto'),
+                                '2026-11-04', '18:00', kwargs.pop('label', ''),
+                                known=KNOWN, **kwargs)
+
+    def test_explicit_original_label_has_a_stable_code_and_params(self):
+        row = self.row(label='VERSIONE ORIGINALE')
+        self.assertEqual(row['languageCode'], 'language.original')
+        self.assertEqual(row['evidenceCode'], 'evidence.original.label')
+        self.assertEqual(row['evidenceParams'], {'label': 'versione originale'})
+        self.assertEqual(row['language'], 'Versione originale')
+        self.assertIn('versione originale', row['evidence'])
+
+    def test_verified_original_language_has_a_language_code(self):
+        row = self.row(title='English Film', audio_lang='ENG', year=2026)
+        self.assertEqual(row['languageCode'], 'language.en')
+        self.assertEqual(row['evidenceCode'], 'evidence.original.verified')
+        self.assertEqual(row['evidenceParams'], {'language': 'en', 'titleOnly': False})
+        self.assertEqual(row['language'], 'Inglese')
+
+    def test_italian_metadata_code_keeps_the_curated_evidence_for_italian(self):
+        row = self.row(title='Italian Film', year=2026)
+        self.assertEqual(row['languageCode'], 'language.italian')
+        self.assertEqual(row['evidenceCode'], 'evidence.italian.metadata')
+        self.assertEqual(row['evidenceParams']['sourceEvidence'],
+                         'Scheda film: lingua originale italiana.')
+        self.assertFalse(row['evidenceParams']['titleOnly'])
+        self.assertEqual(row['evidence'], 'Scheda film: lingua originale italiana.')
+
+    def test_title_only_match_sets_the_param_instead_of_embedding_italian(self):
+        row = self.row(title='Italian Film')
+        self.assertEqual(row['evidenceCode'], 'evidence.italian.metadata')
+        self.assertTrue(row['evidenceParams']['titleOnly'])
+        self.assertIn('anno non disponibile', row['evidence'])
+
+    def test_audio_mismatch_dubbed_code_carries_both_language_codes(self):
+        row = self.row(title='English Film', audio_lang='ITA', year=2026)
+        self.assertEqual(row['classification'], 'dubbed')
+        self.assertEqual(row['languageCode'], 'language.dubbed')
+        self.assertEqual(row['evidenceCode'], 'evidence.dubbed.audio')
+        self.assertEqual(row['evidenceParams'], {'filmLanguage': 'en', 'audioLanguage': 'it'})
+
+    def test_dubbed_label_code_keeps_the_label_for_italian(self):
+        row = self.row(label='DOPPIATO')
+        self.assertEqual(row['languageCode'], 'language.dubbed')
+        self.assertEqual(row['evidenceCode'], 'evidence.dubbed.label')
+        self.assertEqual(row['evidenceParams'], {'label': 'doppiato'})
+
+    def test_unknown_audio_code_carries_the_language_code(self):
+        row = self.row(audio_lang='KOR')
+        self.assertEqual(row['languageCode'], 'language.unknown')
+        self.assertEqual(row['evidenceCode'], 'evidence.unknown.audio')
+        self.assertEqual(row['evidenceParams'], {'language': 'ko'})
+        self.assertIn('Coreano', row['evidence'])
+
+    def test_no_evidence_code_for_a_plain_unknown(self):
+        row = self.row()
+        self.assertEqual(row['languageCode'], 'language.unknown')
+        self.assertEqual(row['evidenceCode'], 'evidence.unknown.none')
+        self.assertEqual(row['evidenceParams'], {})
+
+    def test_arca_daily_note_is_a_param_not_extra_italian_text(self):
+        rows = cinema.parse_multicinema(ARCA_HTML, ARCA_SOURCE, '2026-11-04', {})
+        fast = [row for row in rows if row['title'].startswith('Fast and Furious')]
+        self.assertEqual(len(fast), 2)
+        for row in fast:
+            self.assertEqual(row['evidenceCode'], 'evidence.original.label')
+            self.assertTrue(row['evidenceParams']['dailyNote'])
+            self.assertIn('scheda giornaliera', row['evidence'])
+
+    def test_manual_source_statuses_carry_their_message_codes(self):
+        statuses = {item['id']: item for item in cinema.source_statuses()}
+        self.assertEqual(statuses['massimo']['messageCode'], 'source.manual.generic')
+        self.assertEqual(statuses['santandrea']['messageCode'], 'source.manual.cityplex')
+        self.assertEqual(statuses['massimo']['messageParams'], {})
+        self.assertIn('Cityplex', statuses['santandrea']['message'])
+
+    def test_note_codes_are_parallel_to_the_italian_notes(self):
+        original_loaders = cinema.LOADERS
+        original_cache, original_at = cinema.CACHE, cinema.CACHE_AT
+        try:
+            cinema.LOADERS = {}
+            data = cinema.gather(refresh=True)
+        finally:
+            cinema.LOADERS = original_loaders
+            cinema.CACHE, cinema.CACHE_AT = original_cache, original_at
+        self.assertEqual(len(data['notes']), 3)
+        self.assertEqual(data['noteCodes'],
+                         ['notes.dev', 'notes.drive', 'notes.sevenDays'])
+        self.assertEqual(len(data['notes']), len(data['noteCodes']))
+        self.assertTrue(all(isinstance(note, str) and note for note in data['notes']))
 
 
 DATE_CLAIM = re.compile(
@@ -581,9 +678,32 @@ class SourceErrorTests(unittest.TestCase):
             cinema.CACHE, cinema.CACHE_AT = original_cache, original_at
         status = next(item for item in data['sources'] if item['id'] == 'space')
         self.assertEqual(status['status'], 'error')
+        self.assertEqual(status['messageCode'], 'source.error')
+        self.assertEqual(status['messageParams'], {
+            'days': 0, 'total': 7, 'reason': 'HTTP Error 503: Service Unavailable',
+        })
         self.assertIn('0/7 giorni letti', status['message'])
         self.assertIn('HTTP Error 503', status['message'])
         self.assertEqual(data['screenings'], [])
+
+    def test_successful_source_reports_ok_code_and_counts(self):
+        original_loaders = cinema.LOADERS
+        original_cache, original_at = cinema.CACHE, cinema.CACHE_AT
+
+        def working_loader(source, offset, known):
+            return []
+
+        try:
+            cinema.LOADERS = {'space': working_loader}
+            data = cinema.gather(refresh=True)
+        finally:
+            cinema.LOADERS = original_loaders
+            cinema.CACHE, cinema.CACHE_AT = original_cache, original_at
+        status = next(item for item in data['sources'] if item['id'] == 'space')
+        self.assertEqual(status['status'], 'ok')
+        self.assertEqual(status['messageCode'], 'source.ok')
+        self.assertEqual(status['messageParams'], {'days': 7, 'total': 7})
+        self.assertEqual(status['message'], '7/7 giorni letti')
 
 
 class HostValidationTests(unittest.TestCase):

@@ -4,7 +4,7 @@
 
 **Acceptance for this handover:** every command, link and "Expected" line from the supplied plan is present; all six revised steps are unchecked; no plan step has been run; `git log` contains a commit named "Handover snapshot" (or the missing git identity is reported).
 
-**State:** Steps 1–6 of 6 complete. Step 1 (2026-11-04): backend correctness and tests. Step 2 (2026-11-05): live run and source audit; server stopped afterwards; no installs or deletes. Step 3 (2026-11-05): Cityplex has no per-screening language token; both venues stay `manual` with date-free messages and no parser. Step 4 (2026-11-05): The Space official adapter live, `7/7 giorni letti`, 46 offline tests passing, server stopped afterwards. Step 5 (2026-11-05): frontend null/notes/driveMinutes guards, display-only title normalization, explicit loading state, all states and both widths verified; no backend data changed; server stopped afterwards. Step 6 (2026-11-05): README, launcher, run script and final acceptance; 46 tests, 4 live sources, 2 manual, launcher opened Firefox, server stopped afterwards. Tracking applies to the six revised steps; the earlier five-step table is kept as history and is not tracked.
+**State:** Steps 1–6 of 6 complete. Step 1 (2026-11-04): backend correctness and tests. Step 2 (2026-11-05): live run and source audit; server stopped afterwards; no installs or deletes. Step 3 (2026-11-05): Cityplex has no per-screening language token; both venues stay `manual` with date-free messages and no parser. Step 4 (2026-11-05): The Space official adapter live, `7/7 giorni letti`, 46 offline tests passing, server stopped afterwards. Step 5 (2026-11-05): frontend null/notes/driveMinutes guards, display-only title normalization, explicit loading state, all states and both widths verified; no backend data changed; server stopped afterwards. Step 6 (2026-11-05): README, launcher, run script and final acceptance; 46 tests, 4 live sources, 2 manual, launcher opened Firefox, server stopped afterwards. Tracking applies to the six revised steps; the earlier five-step table is kept as history and is not tracked. Step 7 (2026-11-05): Italian/English switch with a persisted choice, backend translation codes, and bilingual dates, states and messages; 58 tests; server stopped afterwards.
 
 **Rule:** Whenever a plan step finishes, tick its single checkbox and replace that step's Evidence line with the command and observed result. Unverified work does not get evidence.
 
@@ -16,6 +16,7 @@
 - Step 4 of 6: The Space official adapter. See its Evidence line below.
 - Step 5 of 6: frontend fields, safe rendering and all states. See its Evidence line below.
 - Step 6 of 6: README, launcher, run script, final report. See its Evidence line below.
+- Step 7 of 7: English version. See its Evidence line below.
 
 ## PLAN (copied in full)
 
@@ -320,13 +321,46 @@ Final acceptance:
 
 ---
 
+### 7. English version
+
+- [x] **Step 7 of 7 — English version**
+  **Evidence:** 2026-11-05. TDD: the new contract/code tests failed first on the old API (`13 errors, 2 failures`: missing `languageCode`/`evidenceCode`/`evidenceParams`, `messageCode`/`messageParams`, `noteCodes`), then passed after the backend change. `py -3 -m unittest -v` → `Ran 58 tests in 0.033s` / `OK`, exit 0. `node --check web/app.js` → exit 0. Dictionary parity check: 100 IT keys, 100 EN keys, 74 static/literal uses, no missing or extra keys. Live server on 8765 (716 API rows, 4 sources `ok`, 2 `manual`): fresh profile stored no language, `<html lang="it">`, `Voci originali · Cinema a Pescara`, `Lingua confermata 193` / `Da verificare 518`, `giovedì 5 novembre`, `193 proiezioni`, switch `🇮🇹 IT` pressed; screenshot `step7-it-desktop.png`. Focused the `EN` button and sent a real Enter through CDP: `<html lang="en">`, `localStorage["cinemavo.lang"]="en"`, `aria-pressed` flipped, `:focus-visible` true, active element `en`; `Original voices · Cinema in Pescara`, `Language confirmed 193` / `To verify 518`, `Thursday 5 November`, `Updated 5 Nov, 17:46`, `4 of 6 sources available`, source messages `The site lists titles…` / `The Cityplex site lists titles…`, notes `DEVELOPMENT VERSION…`, evidence `Curated metadata confirms Italian as the original language (year unavailable).`, actions `Times and tickets` / `Source` / `Directions`; screenshots `step7-en-desktop.png`, `step7-en-coverage.png`. Reload kept EN (`lang=en`, storage `en`, switch pressed). EN visible-text scan over whole text nodes (allowed raw film titles, cinema/source names and city names): 0 Italian-phrase hits, 0 Italian-token hits, 0 accented-character hits. The only Italian left is cinema-supplied titles, e.g. `Un tranquillo funerale di famiglia`, `Je so' pazzo`, `L'estranea`, `Stray Kids … Lingua Originale`, `Rammstein … Lingua Originale`, plus names such as `Multiplex L’Arca`, `UCI Luxe Megalò`, `Cineteatro Sant’Andrea`. At 390 px: clientWidth 390 = scrollWidth 390, 0 elements past the edge, switch box `left 285 / right 370 / height 36`; `step7-it-mobile.png`, `step7-en-mobile.png`. EN states: empty `No confirmed screenings` + `Try changing the date, cinema or title…`; loading `Checking showtimes…` + `Updating showtimes from the cinemas…`; stale error `Update failed · showing previous data` + `You are seeing data from the last check…`; first-load error `I can’t load the showtimes` + `Failed to fetch Check your connection…` + `Try again`, recovered to 193 rows after retry; 0 Italian-token hits in all four states. Focus ring captured in `step7-switch-en-focus.png`. Server stopped: no listener on 8765, no `cinema.py` process; CDP 9222 closed. DOM dumps at `.pandacode/step7-it.html` and `.pandacode/step7-en.html` (ignored).
+
+**Files:** `cinema.py`, `test_cinema.py`, `web/app.js`, `web/index.html`, `web/style.css`, `README.md` (language note and API contract), `PROGRESS.md`.
+
+**Goal:** The site switches between Italian (default) and English with a small flag-plus-text control at the top: `🇮🇹 IT` and `🇬🇧 EN`. The choice is remembered in `localStorage`, wrapped in `try/catch`. Every string written by the app switches, including headings, buttons, filters, tabs, empty/error/loading states, source messages, evidence wording produced by `cinema.py`, dates and weekday names. Film titles and cinema names supplied by the cinemas stay as they are.
+
+**Changes**
+- Backend: add stable codes and parameters while keeping every existing Italian field:
+  - screening row: `languageCode`, `evidenceCode`, `evidenceParams`;
+  - source status: `messageCode`, `messageParams`;
+  - payload: `noteCodes`, parallel to `notes`.
+- Frontend: one `MESSAGES` dictionary for `it` and `en` plus a `t()` helper in `web/app.js`; no libraries and no npm.
+- Static HTML: `data-i18n`, `data-i18n-placeholder` and `data-i18n-aria-label` attributes; split icons and counts into their own spans so replacing `textContent` cannot delete them.
+- Locale-aware `Intl` formatters for day headings and timestamps; localized select options, result counts and source summaries.
+- Set `<html lang>` on every language change. Read and write the stored language in `try/catch`.
+- Two-button segmented switch (`🇮🇹 IT`, `🇬🇧 EN`) with `aria-pressed`, reachable and operable by keyboard, wrapping without overflow at 390 px.
+
+**Proof**
+```powershell
+py -3 -m unittest -v
+node --check web/app.js
+# start the server; headless Chrome DOM dumps and screenshots for IT and EN;
+# switch via the real buttons, reload to prove localStorage, scan EN visible text
+```
+Expected: every test passes; the JS syntax check exits 0; IT and EN both render; EN shows no Italian app text apart from film titles and cinema names; the choice survives a reload; the switch is keyboard-operable and fits at 390 px; the server is stopped afterwards.
+
+**What could go wrong:** a missing English key silently falling back to Italian; `textContent` wiping the tab counts or the refresh icon; dates still formatted with `it-IT`; localStorage blocked or unavailable; source errors exposing raw Italian diagnostics; curated override evidence leaking into EN; the extra control causing horizontal overflow at 390 px.
+
+---
+
 ## Scope note
 
-The revised plan is six steps, within the limit. Step 4 is the critique-driven addition; if you want the original five-phase scope, drop step 4 and renumber 5–6 — the other steps stand on their own. No files were edited, no server was started, and no installs or deletions were made. If approved, I would execute step 1 only and stop after `python -B -m unittest -v test_cinema` passes.
+The revised plan is six steps, within the limit. Step 4 is the critique-driven addition; if you want the original five-phase scope, drop step 4 and renumber 5–6 — the other steps stand on their own. No files were edited, no server was started, and no installs or deletions were made. If approved, I would execute step 1 only and stop after `python -B -m unittest -v test_cinema` passes. Step 7 extends the plan to seven steps; the “execute step 1 only” sentence is kept as handover history.
 
 ## Next
 
-1. All six steps are complete and evidenced. No further step is planned; the remaining work is listed under Open issues.
+1. All seven steps are complete and evidenced. No further step is planned; the remaining work is listed under Open issues.
 
 ## Open issues
 
@@ -335,15 +369,19 @@ The revised plan is six steps, within the limit. Step 4 is the critique-driven a
 - Coverage is not complete. Asterope in Francavilla al Mare and other nearby venues are not sources; the app covers the six named cinemas only.
 - Driving times are fixed estimates from central Pescara, with no live traffic or 30-minute isochrone. Universo is exactly at the 30-minute boundary.
 - Italian-original recognition depends on four hand-verified overrides in `language-overrides.json`; new Italian originals stay `unknown` until added, and ambiguous titles are rejected.
-- `cinema.py`’s module docstring still calls the app a draft “not yet tested end to end”. It is stale after steps 1–6 and was left unchanged because step 6 did not touch backend code.
+- `cinema.py`’s module docstring still calls the app a draft “not yet tested end to end”. It is stale after steps 1–7 and was left unchanged because step 7 did not need it.
 - Browser, layout and API-failure checks were run ad hoc through Chrome CDP; no committed end-to-end browser test exists.
 - If port 8765 is busy, `Avvia Cinema.cmd` ends with a raw Python traceback and `pause`. The README documents `--port`; the launcher message is not friendly.
+- The English UI is a hand-written dictionary. New UI strings must be added to both the `it` and `en` entries in `web/app.js`; parity was checked ad hoc in step 7, but no committed test enforces it.
+- A failed source’s raw diagnostic is passed through in both languages; only the surrounding template is translated. The live step 7 run had no failed source, so no raw Italian diagnostic was visible in EN.
+- Windows Chrome renders the flag emoji as the regional-indicator fallback (`IT IT`, `GB EN`). The DOM text is still `🇮🇹 IT` / `🇬🇧 EN` and the focus ring works; real flag artwork would need inline SVGs.
 
 ## Open questions
 
 - None for step 4. The plan’s 2026-11-04 Fast and Furious/Rammstein expectations could not be replayed on 2026-11-05 because the programme changed; the step 4 Evidence records what was measured.
 - None for step 5. The 60-second fetch timeout was not changed because the measured refresh was 1.49–1.92s; the visible loading status was added anyway.
 - None for step 6. The live counts moved slightly between steps 4 and 6, so the README does not pin exact daily counts.
+- None for step 7. The IT and EN dictionaries have the same 100 keys, and the live EN visible-text scan found no Italian app copy outside film titles and venue/city names.
 
 ## Key facts
 
@@ -351,3 +389,4 @@ The revised plan is six steps, within the limit. Step 4 is the critique-driven a
 - `PROGRESS.md` did not exist before this file. `.gitignore` excludes `__pycache__/`, `*.pyc`, `.cache/`.
 - The plan's findings and "Expected" lines are claims from the 2026-11-04 handover. Steps 1–6 re-measured the parts they exercised; the Step 2 and Step 6 Evidence lines record the live results.
 - At handover, only the handover operations were run: file creation, `git init`, `git add -A`, `git commit -m "Handover snapshot"`. No plan command was executed then.
+- Step 7 stores the language in `localStorage` under `cinemavo.lang`; Italian is used when the key is absent, invalid or storage is blocked.
