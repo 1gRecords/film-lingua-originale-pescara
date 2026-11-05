@@ -4,7 +4,7 @@
 
 **Acceptance for this handover:** every command, link and "Expected" line from the supplied plan is present; all six revised steps are unchecked; no plan step has been run; `git log` contains a commit named "Handover snapshot" (or the missing git identity is reported).
 
-**State:** Steps 1–4 of 6 complete. Step 1 (2026-11-04): backend correctness and tests. Step 2 (2026-11-05): live run and source audit; server stopped afterwards; no installs or deletes. Step 3 (2026-11-05): Cityplex has no per-screening language token; both venues stay `manual` with date-free messages and no parser. Step 4 (2026-11-05): The Space official adapter live, `7/7 giorni letti`, 46 offline tests passing, server stopped afterwards. Steps 5–6 not started. Tracking applies to the six revised steps; the earlier five-step table is kept as history and is not tracked.
+**State:** Steps 1–5 of 6 complete. Step 1 (2026-11-04): backend correctness and tests. Step 2 (2026-11-05): live run and source audit; server stopped afterwards; no installs or deletes. Step 3 (2026-11-05): Cityplex has no per-screening language token; both venues stay `manual` with date-free messages and no parser. Step 4 (2026-11-05): The Space official adapter live, `7/7 giorni letti`, 46 offline tests passing, server stopped afterwards. Step 5 (2026-11-05): frontend null/notes/driveMinutes guards, display-only title normalization, explicit loading state, all states and both widths verified; no backend data changed; server stopped afterwards. Step 6 not started. Tracking applies to the six revised steps; the earlier five-step table is kept as history and is not tracked.
 
 **Rule:** Whenever a plan step finishes, tick its single checkbox and replace that step's Evidence line with the command and observed result. Unverified work does not get evidence.
 
@@ -14,6 +14,7 @@
 - Step 2 of 6: live run and source audit. See its Evidence line below.
 - Step 3 of 6: Cityplex condition check. See its Evidence line below.
 - Step 4 of 6: The Space official adapter. See its Evidence line below.
+- Step 5 of 6: frontend fields, safe rendering and all states. See its Evidence line below.
 
 ## PLAN (copied in full)
 
@@ -237,8 +238,8 @@ Expected: `space` `ok`; Fast and Furious 18:50 and Rammstein sessions appear as 
 
 ### 5. Frontend: exact fields, safe rendering, all states
 
-- [ ] **Step 5 of 6 — Frontend: exact fields, safe rendering, all states**
-  **Evidence:** _Not started; no command from this step has been run._
+- [x] **Step 5 of 6 — Frontend: exact fields, safe rendering, all states**
+  **Evidence:** 2026-11-05. `node --check web/app.js` → exit 0; `Select-String` sink scan → no matches. Chrome `--dump-dom` → shell `<h1 id="title">Voci originali`, `Lingua confermata`, 196 `class="screening"`. Real `GET /api/screenings?refresh=1` → 1.49s (an earlier run 1.92s); browser refresh 1.47–1.51s; the 60s abort is unchanged because it is already ≈30× the measured time, and the wait now shows `Aggiorno gli orari dai cinema…` plus `aria-busy`. Display-only title normalization: The Space `WILD HORSE NINE` and Arca `Wild Horse Nine` both render `Wild Horse Nine` (10 filtered rows), no all-caps headings on either tab, and the API JSON still returns the raw titles. Verified with live and intercepted responses: initial loading, confirmed 196 / unknown 528, search (`wild horse` 10), date 5 Nov (23), cinema (69, one venue), Italian toggle 196→13→196, refresh, empty unknown, stale-data error keeping rows, first-load 500 + retry, sources ok/manual/error, `dubbed` and `driveMinutes: null`/31 excluded, non-array `notes` normalized, `javascript:` links dropped, no `null` text. Layout: 1280 → clientWidth 1265 = scrollWidth 1265 (15px scrollbar); 390 → 390/390 with 0 elements past the edge. `desktop.png` and `mobile.png` under `.pandacode/progress-shots` inspected; the plan’s raw `--window-size=390` capture is cropped by Chrome headless on Windows, so `mobile.png` was recaptured with CDP 390×900 emulation. Server stopped: no listener on 8765, no `cinema.py` process.
 
 **Files:** `web/app.js`, `web/index.html`, `web/style.css`.
 
@@ -324,11 +325,12 @@ The revised plan is six steps, within the limit. Step 4 is the critique-driven a
 
 ## Next
 
-1. Steps 1–4 are complete and evidenced. Do not start step 5 without a new instruction.
+1. Steps 1–5 are complete and evidenced. Do not start step 6 without a new instruction.
 
 ## Open questions
 
 - None for step 4. The plan’s 2026-11-04 Fast and Furious/Rammstein expectations could not be replayed on 2026-11-05 because the programme changed; the step 4 Evidence records what was measured.
+- None for step 5. The 60-second fetch timeout was not changed because the measured refresh was 1.49–1.92s; the visible loading status was added anyway.
 
 ## Key facts
 
