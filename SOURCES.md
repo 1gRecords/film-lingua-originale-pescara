@@ -14,7 +14,8 @@ Scope: maximum 30 minutes driving from central Pescara, confirmed by user. Trave
 
 ### Pescara Cityplex (Massimo and Sant’Andrea)
 - `https://pescaracityplex.it/` is accessible plain HTML. Date ranges and per-film schedules are embedded in Elementor heading/text widgets. It has links to Comingsoon film details and Ciaotickets purchase.
-- Current heading: Massimo program29Oct–4Nov2026, Monday closed. Multiple films have exceptions/different times by day. Parse date restrictions carefully. Sant’Andrea current program only31Oct/1Nov; do not report these as current4Nov.
+- Current heading: Massimo program29Oct–4Nov2026, Monday closed. Multiple films have exceptions/different times by day. Parse date restrictions carefully. Sant’Andrea now lists 6–8 Nov (2026-11-05 check); the earlier 31Oct/1Nov note was stale.
+- 2026-11-05 live check: the page contains zero occurrences of `lingua originale`, `versione originale`, `v.o.`, `vos`, `doppiat` and `sottotitol` (casefolded). There is no per-screening language marker, so both venues stay `manual` and no Cityplex parser exists. The app message makes no date claim, so it stays true as the programme changes.
 
 ### UCI Luxe Megalò — WORKING OFFICIAL JSON BACKEND
 Base: `https://myuci---uci-backend-production-nfluwp7wga-oc.a.run.app/api`

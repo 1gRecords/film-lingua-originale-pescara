@@ -4,7 +4,7 @@
 
 **Acceptance for this handover:** every command, link and "Expected" line from the supplied plan is present; all six revised steps are unchecked; no plan step has been run; `git log` contains a commit named "Handover snapshot" (or the missing git identity is reported).
 
-**State:** Steps 1–2 of 6 complete. Step 1 (2026-11-04): backend correctness and tests, 32 offline tests passing. Step 2 (2026-11-05): live run and source audit; server stopped afterwards; no installs or deletes. Steps 3–6 not started. Tracking applies to the six revised steps; the earlier five-step table is kept as history and is not tracked.
+**State:** Steps 1–3 of 6 complete. Step 1 (2026-11-04): backend correctness and tests, 32 offline tests passing. Step 2 (2026-11-05): live run and source audit; server stopped afterwards; no installs or deletes. Step 3 (2026-11-05): Cityplex has no per-screening language token; both venues stay `manual` with date-free messages and no parser; 34 offline tests passing; server stopped afterwards. Steps 4–6 not started. Tracking applies to the six revised steps; the earlier five-step table is kept as history and is not tracked.
 
 **Rule:** Whenever a plan step finishes, tick its single checkbox and replace that step's Evidence line with the command and observed result. Unverified work does not get evidence.
 
@@ -12,6 +12,7 @@
 
 - Step 1 of 6: backend correctness and tests. See its Evidence line below.
 - Step 2 of 6: live run and source audit. See its Evidence line below.
+- Step 3 of 6: Cityplex condition check. See its Evidence line below.
 
 ## PLAN (copied in full)
 
@@ -143,8 +144,8 @@ Then open these pages/endpoints and compare the app’s rows:
 
 ### 3. Cityplex: verify the condition and do not parse
 
-- [ ] **Step 3 of 6 — Cityplex: verify the condition and do not parse**
-  **Evidence:** _Not started; no command from this step has been run._
+- [x] **Step 3 of 6 — Cityplex: verify the condition and do not parse**
+  **Evidence:** 2026-11-05, proof commands run as written. `pescaracityplex.it` token scan → `{'lingua originale': 0, 'versione originale': 0, 'v.o.': 0, 'vos': 0, 'doppiat': 0, 'sottotitol': 0}`. `/api/screenings` → `massimo` `manual`, `santandrea` `manual`; 0 rows with `cinemaId` `massimo` or `santandrea`; no source `ok`. Messages read back from the API: Massimo “Il sito elenca titoli, date e orari ma non la lingua per proiezione. Verificare la versione sul sito o in biglietteria.”; Sant’Andrea “Il sito Cityplex elenca titoli, date e orari ma non la lingua per proiezione. Verificare la versione sul sito o in biglietteria.” No Cityplex parser; the plan’s dated Sant’Andrea wording was not used because Cityplex now lists Sant’Andrea open 6–8 Nov, and neither message makes a date claim. `python -B -m unittest -v test_cinema` → `Ran 34 tests in 0.014s` / `OK`, exit 0; the two new tests failed first on the old `settimanale` wording. Server stopped: no listener on 8765, 0 python processes.
 
 **Files:** `cinema.py` (manual messages only), `SOURCES.md`, `test_cinema.py`.
 
@@ -322,7 +323,7 @@ The revised plan is six steps, within the limit. Step 4 is the critique-driven a
 
 ## Next
 
-1. Steps 1–2 are complete and evidenced. Do not start step 3 without a new instruction.
+1. Steps 1–3 are complete and evidenced. Do not start step 4 without a new instruction.
 
 ## Open questions
 

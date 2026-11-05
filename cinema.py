@@ -283,8 +283,8 @@ def load_uci(source, offset, known):
 
 
 MANUAL_MESSAGES = {
-    'massimo': 'Programma settimanale sul sito Cityplex; la lingua per proiezione non è indicata. Verificare la versione sul sito o in biglietteria.',
-    'santandrea': 'Programma sul sito Cityplex; la lingua per proiezione non è indicata. Verificare la versione sul sito o in biglietteria.',
+    'massimo': 'Il sito elenca titoli, date e orari ma non la lingua per proiezione. Verificare la versione sul sito o in biglietteria.',
+    'santandrea': 'Il sito Cityplex elenca titoli, date e orari ma non la lingua per proiezione. Verificare la versione sul sito o in biglietteria.',
     'space': 'Il sito ufficiale The Space non ha un adapter automatico attivo: verificare la programmazione sul sito.',
 }
 LOADERS = {'arca': load_multicinema, 'universo': load_multicinema, 'uci': load_uci}

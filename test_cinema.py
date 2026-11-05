@@ -4,6 +4,7 @@ Every fixture is inline. Nothing in this module opens a socket, so the suite
 also proves that the parsers do not depend on the live sites.
 """
 import json
+import re
 import unittest
 from datetime import datetime, timezone
 
@@ -357,6 +358,43 @@ class ContractTests(unittest.TestCase):
         source_ids = {item['id'] for item in cinema.SOURCES}
         self.assertTrue(set(cinema.LOADERS) <= source_ids)
         self.assertEqual(set(cinema.LOADERS), {'arca', 'universo', 'uci'})
+
+
+DATE_CLAIM = re.compile(
+    r'settimanale|aggiornat|oggi|domani|questa settimana|prossim|fino al|'
+    r'\b(?:gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|'
+    r'settembre|ottobre|novembre|dicembre)\b|'
+    r'\b\d{1,2}\s*(?:°|º)?\s*(?:gen|feb|mar|apr|mag|giu|lug|ago|set|ott|nov|dic)\b|'
+    r'\b\d{1,2}/\d{1,2}\b|\b20\d{2}\b',
+    re.IGNORECASE,
+)
+
+
+class ManualSourceTests(unittest.TestCase):
+    MANUAL_IDS = ('massimo', 'santandrea')
+
+    def test_manual_messages_make_no_programme_or_date_claim(self):
+        for source_id in self.MANUAL_IDS:
+            with self.subTest(source_id):
+                message = cinema.MANUAL_MESSAGES[source_id]
+                self.assertIsNone(DATE_CLAIM.search(message), message)
+                self.assertIn('verificare', message.casefold())
+
+    def test_manual_sources_emit_no_rows_and_never_report_ok(self):
+        original_loaders = cinema.LOADERS
+        original_cache, original_at = cinema.CACHE, cinema.CACHE_AT
+        try:
+            cinema.LOADERS = {}
+            data = cinema.gather(refresh=True)
+        finally:
+            cinema.LOADERS = original_loaders
+            cinema.CACHE, cinema.CACHE_AT = original_cache, original_at
+        self.assertEqual(data['screenings'], [])
+        self.assertFalse(any(item['status'] == 'ok' for item in data['sources']))
+        for source_id in self.MANUAL_IDS:
+            status = next(item for item in data['sources'] if item['id'] == source_id)
+            self.assertEqual(status['status'], 'manual')
+            self.assertNotIn(source_id, cinema.LOADERS)
 
 
 class HostValidationTests(unittest.TestCase):
