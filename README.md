@@ -8,7 +8,7 @@ Trova le proiezioni in lingua originale vicino a Pescara, entro circa 30 minuti 
 2. Il browser si apre su `http://127.0.0.1:8765`.
 3. Scegli una data, un cinema o scrivi il titolo. La scheda “Lingua confermata” mostra solo le proiezioni con una prova della lingua originale. La scheda “Da verificare” raccoglie le altre.
 
-Il sito parte in italiano. Il selettore in alto (`🇮🇹 IT` / `🇬🇧 EN`) passa all’inglese e ricorda la scelta nel browser. Titoli dei film e nomi dei cinema restano nella lingua della fonte.
+Il sito parte in italiano. Il selettore in alto (bandierine disegnate nella pagina con `IT` / `EN`) passa all’inglese e ricorda la scelta nel browser. Titoli dei film e nomi dei cinema restano nella lingua della fonte.
 
 Serve Python 3.10 o successivo. Non servono pacchetti aggiuntivi, account o chiavi. Il programma resta su questo computer e ascolta solo su `127.0.0.1`.
 
