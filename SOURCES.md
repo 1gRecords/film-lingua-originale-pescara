@@ -1,4 +1,4 @@
-# Cinema source research — 2026-11-04
+# Cinema source research — 2026-11-04, updated 2026-11-05
 
 Scope: maximum 30 minutes driving from central Pescara, confirmed by user. Travel estimates must be labelled estimates and users should check route/traffic. Nearby venues: Massimo and Sant’Andrea (Pescara), Arca (Spoltore), The Space (Montesilvano), UCI Luxe Megalò (Chieti Scalo), Universo (Silvi; boundary case).
 
@@ -29,13 +29,17 @@ Base: `https://myuci---uci-backend-production-nfluwp7wga-oc.a.run.app/api`
 - UCI website direct returned403; backend is separately publicly accessible and worked.
 - Official mall confirms weekly OV screenings: `https://www.megaloweb.it/cinema/uci-luxe/`.
 
-## The Space — endpoint found, not yet tested
-Official page`https://www.thespacecinema.it/cinema/montesilvano/al-cinema` returned HTTP403.
-Potential public official API from open integration documentation:
-- `https://www.thespacecinema.it/api/microservice/showings/cinemas`
-- `/cinemas/{cinemaId}/films?showingDate=YYYY-MM-DDT00:00:00&minEmbargoLevel=3&includesSession=true&includeSessionAttributes=true`
-- Cinemas structure documented as`{result:[{alpha,cinemas:[cinema]}]}`. Store/replay ordinary cookies if server provides them; no challenge solving.
-API pointer discovered in`https://glama.ai/mcp/servers/KiraPC/italian-cinema-mcp`; upstream direct results remain to be checked.
+## The Space, Montesilvano — WORKING OFFICIAL JSON API
+- `https://www.thespacecinema.it/cinema/montesilvano/al-cinema` returns 200 with an ordinary cookie jar (checked 2026-11-05; the earlier 403 is stale).
+- `GET https://www.thespacecinema.it/api/microservice/showings/cinemas` lists cinemas. Montesilvano is cinema `1026`.
+- `GET /api/microservice/showings/cinemas/1026/films?showingDate=YYYY-MM-DDT00:00:00&minEmbargoLevel=3&includesSession=true&includeSessionAttributes=true` returns `{result:[film], responseCode:0, errorMessage:null}`.
+- Film fields used: `filmTitle`, `filmUrl`, `releaseDate`, `showingGroups[].date`, `showingGroups[].sessions[]`. There is no film-level language field.
+- Session fields used: `sessionId`, `startTime`, `showTimeWithTimeZone`, `bookingUrl` (relative), `attributes[]` with `attributeType:"Language"` and `name:"LINGUA ORIGINALE"` or `"ITALIANO"`.
+- Rules: `LINGUA ORIGINALE` → `original`, or `italian` when a verified Italian override matches title and year. `ITALIANO` → `italian` only with a verified Italian override; otherwise `unknown`, never `dubbed` and never `original`. Other/missing language → `unknown`. The `releaseDate` year is passed to the override matcher; a known mismatch rejects the override.
+- Adapter: primes cookies once, then seven day requests one at a time under a lock with a 20 s timeout; 401 re-primes and retries once; a failed prime is reused for 60 s. No secondary site.
+- Live 2026-11-05 check: `space` `ok`, `7/7 giorni letti`; Space rows `italian` 49, `unknown` 173, `original` 11, `dubbed` 0. All-source counts `italian` 185, `unknown` 529, `original` 13, `dubbed` 0, exactly the step-2 counts plus the Space rows. The 11 originals are Wild Horse Nine (eight sessions, 5–11 Nov, 19:00 plus 8 Nov 11:10), Rammstein Live in Mexico City (7 Nov 15:00) and Stray Kids (7 Nov 13:00 and 17:15).
+- Live spot checks: Wild Horse Nine 5 Nov 16:55 is `ITALIANO` and stays `unknown`; 19:00 is `LINGUA ORIGINALE` and is `original`; Fast & Furious 5 Nov 22:35 is `ITALIANO` and stays `unknown`; Dio ride, Je so’ pazzo and Un tranquillo funerale di famiglia match the Italian overrides and are `italian`.
+- The plan’s 2026-11-04 snapshot (Fast and Furious 18:50 VO, three ITALIANO sessions, two Rammstein VO sessions) is date-specific and is not in the 2026-11-05 seven-day window. The same mixed-session rule is proven by the offline fixture and by Wild Horse Nine.
 
 ## Aggregators and caveats
 - `https://www.oraricinema.com/cinema/montesilvano/lingua-originale/` and`https://www.oraricinema.com/cinema/chieti/lingua-originale/` explicitly mark VO/VOS per time and date, but plain urllib returned403. Web search can read indexed content. Do not fabricate live coverage from indexed snippets. Some aggregator FAQs falsely call Italian originals dubbed because they classify ITA vsVO mechanically.

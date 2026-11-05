@@ -8,25 +8,32 @@ from datetime import date, datetime, timedelta, timezone
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 import hashlib
 import html
+import http.cookiejar
 import json
 from pathlib import Path
 import re
 import threading
 import time
 import unicodedata
+import urllib.error
 import urllib.request
 from urllib.parse import urljoin, urlparse, parse_qs
 import webbrowser
 
 ROOT = Path(__file__).resolve().parent
 UCI_API = 'https://myuci---uci-backend-production-nfluwp7wga-oc.a.run.app/api'
+SPACE_BASE = 'https://www.thespacecinema.it'
+SPACE_PAGE = SPACE_BASE + '/cinema/montesilvano/al-cinema'
+SPACE_API = SPACE_BASE + '/api/microservice/showings/cinemas/1026/films'
+SPACE_UA = ('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
+            '(KHTML, like Gecko) Chrome/131.0 Safari/537.36')
 SOURCES = [
  {'id':'arca','name':"Multiplex L’Arca",'city':'Spoltore','driveMinutes':15,'url':'https://multicinema.it/Programmazione?cinema=arca'},
  {'id':'universo','name':'Multiplex Universo','city':'Silvi','driveMinutes':30,'url':'https://multicinema.it/Programmazione?cinema=universo'},
  {'id':'uci','name':'UCI Luxe Megalò','city':'Chieti','driveMinutes':30,'url':'https://www.ucicinemas.it/cinema/uci-cinemas-megalo/'},
  {'id':'massimo','name':'Cineteatro Massimo','city':'Pescara','driveMinutes':5,'url':'https://pescaracityplex.it/'},
  {'id':'santandrea','name':"Cineteatro Sant’Andrea",'city':'Pescara','driveMinutes':5,'url':'https://pescaracityplex.it/'},
- {'id':'space','name':'The Space Porto Allegro','city':'Montesilvano','driveMinutes':25,'url':'https://www.thespacecinema.it/al-cinema/montesilvano'}]
+ {'id':'space','name':'The Space Porto Allegro','city':'Montesilvano','driveMinutes':25,'url':SPACE_PAGE}]
 CACHE = None
 CACHE_AT = 0
 CACHE_TTL = 600
@@ -63,6 +70,61 @@ def fetch(url):
         if len(data) > 3_000_000:
             raise ValueError('Source response too large')
         return data.decode('utf-8', errors='replace')
+
+
+class SpaceClient:
+    """Cookie-session client for the official The Space JSON API.
+
+    The lock keeps the seven daily requests one at a time and protects the
+    shared opener. A failed cookie prime is reused for 60 seconds so one
+    refresh does not retry it seven times.
+    """
+
+    def __init__(self):
+        self.jar = http.cookiejar.CookieJar()
+        self.opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(self.jar))
+        self.lock = threading.Lock()
+        self.primed = False
+        self.prime_error = None
+        self.prime_failed_at = 0.0
+
+    def _get(self, url):
+        request = urllib.request.Request(url, headers={'User-Agent': SPACE_UA})
+        with self.opener.open(request, timeout=20) as response:
+            return response.read(3_000_001)
+
+    def _prime(self):
+        try:
+            self._get(SPACE_PAGE)
+        except Exception as exc:
+            self.primed = False
+            self.prime_error = exc
+            self.prime_failed_at = time.monotonic()
+            raise
+        self.primed = True
+        self.prime_error = None
+
+    def films(self, day):
+        url = (f'{SPACE_API}?showingDate={day}T00:00:00&minEmbargoLevel=3'
+               '&includesSession=true&includeSessionAttributes=true')
+        with self.lock:
+            if not self.primed:
+                if self.prime_error is not None and time.monotonic() - self.prime_failed_at < 60:
+                    raise self.prime_error
+                self._prime()
+            try:
+                payload = self._get(url)
+            except urllib.error.HTTPError as exc:
+                if exc.code != 401:
+                    raise
+                self._prime()
+                payload = self._get(url)
+            if len(payload) > 3_000_000:
+                raise ValueError('The Space: risposta troppo grande')
+            return json.loads(payload)
+
+
+SPACE_CLIENT = SpaceClient()
 
 
 def text(value):
@@ -175,15 +237,16 @@ def http_url(value, fallback=''):
     return fallback
 
 
-def screening(source, title, day, clock, label='', booking='', known=None, audio_lang=None, year=None):
+def screening(source, title, day, clock, label='', booking='', known=None,
+              audio_lang=None, year=None, source_url=None):
     category, language, evidence = classify(label, title, known, audio_lang, year)
     key = '|'.join((source['id'], title, day, clock, category))
-    source_url = http_url(source.get('url'), '')
+    link = http_url(source_url, '') or http_url(source.get('url'), '')
     return {'id':hashlib.sha1(key.encode()).hexdigest()[:16], 'title':title,
             'cinemaId':source['id'], 'cinema':source['name'], 'city':source['city'],
             'date':day, 'time':clock, 'language':language, 'classification':category,
-            'evidence':evidence, 'sourceUrl':source_url,
-            'bookingUrl':http_url(booking, source_url), 'driveMinutes':source['driveMinutes']}
+            'evidence':evidence, 'sourceUrl':link,
+            'bookingUrl':http_url(booking, link), 'driveMinutes':source['driveMinutes']}
 
 
 def parse_multicinema(raw, source, day, known):
@@ -282,12 +345,111 @@ def load_uci(source, offset, known):
     return parse_uci(json.loads(fetch(UCI_API + '/theatres/uci-cinemas-megalo/programming/' + day)), source, known)
 
 
+SPACE_ISO = re.compile(r'^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})')
+
+
+def space_start(session):
+    for key in ('startTime', 'showTimeWithTimeZone'):
+        value = session.get(key)
+        match = SPACE_ISO.match(value) if isinstance(value, str) else None
+        if not match:
+            continue
+        year, month, day, hours, minutes = match.groups()
+        try:
+            date.fromisoformat(f'{year}-{month}-{day}')
+        except ValueError:
+            continue
+        clock = f'{hours}:{minutes}'
+        if valid_clock(clock):
+            return f'{year}-{month}-{day}', clock
+    return '', ''
+
+
+def space_year(film):
+    value = film.get('releaseDate')
+    if not isinstance(value, str) or len(value) < 10:
+        return None
+    try:
+        return date.fromisoformat(value[:10]).year
+    except ValueError:
+        return None
+
+
+def space_labels(session):
+    names = []
+    for attribute in session.get('attributes') or []:
+        if not isinstance(attribute, dict):
+            continue
+        if str(attribute.get('attributeType') or '').casefold() != 'language':
+            continue
+        name = text(str(attribute.get('name') or attribute.get('value') or '')).casefold()
+        if name:
+            names.append(name)
+    return names
+
+
+def parse_space(payload, source, known):
+    if not isinstance(payload, dict):
+        raise ValueError('The Space: risposta non è un oggetto JSON')
+    message = payload.get('errorMessage')
+    if message:
+        raise ValueError('The Space: ' + text(str(message)))
+    films = payload.get('result')
+    if not isinstance(films, list):
+        raise ValueError('The Space: campo result assente o non valido')
+    rows = []
+    for film in films:
+        if not isinstance(film, dict):
+            continue
+        title = text(str(film.get('filmTitle') or ''))
+        if not title:
+            continue
+        groups = film.get('showingGroups')
+        if groups is None:
+            continue
+        if not isinstance(groups, list):
+            raise ValueError(f'The Space: showingGroups non valido per {title}')
+        link = http_url(film.get('filmUrl'), '')
+        year = space_year(film)
+        for group in groups:
+            if not isinstance(group, dict):
+                continue
+            sessions = group.get('sessions')
+            if sessions is None:
+                continue
+            if not isinstance(sessions, list):
+                raise ValueError(f'The Space: sessions non valide per {title}')
+            for session in sessions:
+                if not isinstance(session, dict):
+                    continue
+                day, clock = space_start(session)
+                if not day:
+                    continue
+                names = space_labels(session)
+                if 'lingua originale' in names:
+                    label = 'LINGUA ORIGINALE'
+                elif 'italiano' in names:
+                    label = 'ITALIANO'
+                else:
+                    label = ' '.join(names)
+                booking = session.get('bookingUrl')
+                booking = urljoin(SPACE_BASE, booking) if isinstance(booking, str) and booking else ''
+                rows.append(screening(source, title, day, clock, label, booking, known,
+                                      year=year, source_url=link))
+    return rows
+
+
+def load_space(source, offset, known):
+    day = (rome_today() + timedelta(days=offset)).isoformat()
+    return parse_space(SPACE_CLIENT.films(day), source, known)
+
+
 MANUAL_MESSAGES = {
     'massimo': 'Il sito elenca titoli, date e orari ma non la lingua per proiezione. Verificare la versione sul sito o in biglietteria.',
     'santandrea': 'Il sito Cityplex elenca titoli, date e orari ma non la lingua per proiezione. Verificare la versione sul sito o in biglietteria.',
-    'space': 'Il sito ufficiale The Space non ha un adapter automatico attivo: verificare la programmazione sul sito.',
 }
-LOADERS = {'arca': load_multicinema, 'universo': load_multicinema, 'uci': load_uci}
+LOADERS = {'arca': load_multicinema, 'universo': load_multicinema, 'uci': load_uci,
+           'space': load_space}
 
 
 def source_statuses(now=None):
@@ -336,7 +498,7 @@ def gather(refresh=False):
         CACHE={'updatedAt':rome_now().isoformat(),
                'screenings':sorted(unique.values(),key=lambda r:(r['date'],r['time'],r['cinema'])),
                'sources':list(statuses.values()),
-               'notes':['VERSIONE DI SVILUPPO: Massimo, Sant’Andrea e The Space richiedono verifica manuale.',
+               'notes':['VERSIONE DI SVILUPPO: Massimo e Sant’Andrea richiedono verifica manuale.',
                         'Tempi di guida stimati dal centro di Pescara; non sono misure del traffico attuale.',
                         'Sette giorni di programmazione; la nazionalità italiana non dimostra la lingua originale.']}
         CACHE_AT=time.monotonic()

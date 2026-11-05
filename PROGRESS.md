@@ -4,7 +4,7 @@
 
 **Acceptance for this handover:** every command, link and "Expected" line from the supplied plan is present; all six revised steps are unchecked; no plan step has been run; `git log` contains a commit named "Handover snapshot" (or the missing git identity is reported).
 
-**State:** Steps 1–3 of 6 complete. Step 1 (2026-11-04): backend correctness and tests, 32 offline tests passing. Step 2 (2026-11-05): live run and source audit; server stopped afterwards; no installs or deletes. Step 3 (2026-11-05): Cityplex has no per-screening language token; both venues stay `manual` with date-free messages and no parser; 34 offline tests passing; server stopped afterwards. Steps 4–6 not started. Tracking applies to the six revised steps; the earlier five-step table is kept as history and is not tracked.
+**State:** Steps 1–4 of 6 complete. Step 1 (2026-11-04): backend correctness and tests. Step 2 (2026-11-05): live run and source audit; server stopped afterwards; no installs or deletes. Step 3 (2026-11-05): Cityplex has no per-screening language token; both venues stay `manual` with date-free messages and no parser. Step 4 (2026-11-05): The Space official adapter live, `7/7 giorni letti`, 46 offline tests passing, server stopped afterwards. Steps 5–6 not started. Tracking applies to the six revised steps; the earlier five-step table is kept as history and is not tracked.
 
 **Rule:** Whenever a plan step finishes, tick its single checkbox and replace that step's Evidence line with the command and observed result. Unverified work does not get evidence.
 
@@ -13,6 +13,7 @@
 - Step 1 of 6: backend correctness and tests. See its Evidence line below.
 - Step 2 of 6: live run and source audit. See its Evidence line below.
 - Step 3 of 6: Cityplex condition check. See its Evidence line below.
+- Step 4 of 6: The Space official adapter. See its Evidence line below.
 
 ## PLAN (copied in full)
 
@@ -177,8 +178,8 @@ Expected: all counts zero; both sources `manual`; no rows with `cinemaId` `massi
 
 ### 4. The Space official adapter (critique-driven addition)
 
-- [ ] **Step 4 of 6 — The Space official adapter (critique-driven addition)**
-  **Evidence:** _Not started; no command from this step has been run._
+- [x] **Step 4 of 6 — The Space official adapter (critique-driven addition)**
+  **Evidence:** 2026-11-05, step 4 Proof commands run against the live server on the final code. `python -B -m unittest -v test_cinema` → `Ran 46 tests in 0.024s` / `OK`, exit 0 (12 new tests: 10 Space parser, 1 canonical URL, 1 source-error status). `/api/screenings?refresh=1` → `space` `ok`, `7/7 giorni letti`, `checkedAt` `2026-11-05T15:00:35.019047+01:00`, `updatedAt` `2026-11-05T15:00:36.640998+01:00`. Space rows: `italian` 49, `unknown` 173, `original` 11, `dubbed` 0. All sources: `italian` 185, `unknown` 529, `original` 13, `dubbed` 0 — exactly step 2’s 136/356/2 plus the Space rows. The 11 originals are Wild Horse Nine (8 sessions: 5–11 Nov at 19:00 plus 8 Nov 11:10), Stray Kids 7 Nov 13:00/17:15 and Rammstein 7 Nov 15:00; the raw official API output shows `Language` = `LINGUA ORIGINALE` for Wild Horse Nine 5 Nov 19:00, Rammstein 7 Nov 15:00 and Stray Kids 7 Nov 13:00. Live spot checks: Wild Horse Nine 5 Nov 16:55 `ITALIANO` → `unknown`; Fast & Furious 5 Nov 22:35 `ITALIANO` → `unknown`; Dio ride, Je so’ pazzo and Un tranquillo funerale di famiglia → `italian`. The plan’s 2026-11-04 expectations (Fast and Furious 18:50 VO plus three ITALIANO sessions, two Rammstein VO sessions) were not replayable on 2026-11-05: that date is outside the window, Fast now has one ITALIANO session at 22:35 and Rammstein one VO at 7 Nov 15:00. The same mixed rule is proven by the inline fixture (three ITALIANO + one VO) and by Wild Horse Nine live. Server stopped at the end (no listener on 8765, no python process).
 
 **Files:** `cinema.py`, `test_cinema.py`, `SOURCES.md`.
 
@@ -323,17 +324,11 @@ The revised plan is six steps, within the limit. Step 4 is the critique-driven a
 
 ## Next
 
-1. Steps 1–3 are complete and evidenced. Do not start step 4 without a new instruction.
+1. Steps 1–4 are complete and evidenced. Do not start step 5 without a new instruction.
 
 ## Open questions
 
-- Git author identity is not configured in this repo or globally. The snapshot commit cannot be created until these commands are run in `C:\DEV\Cinema`:
-  ```powershell
-  git config user.name "YOUR NAME"
-  git config user.email "YOUR EMAIL"
-  git commit -m "Handover snapshot"
-  ```
-- Should step 4 (The Space) stay in scope? The plan's scope note allows dropping it and renumbering steps 5–6.
+- None for step 4. The plan’s 2026-11-04 Fast and Furious/Rammstein expectations could not be replayed on 2026-11-05 because the programme changed; the step 4 Evidence records what was measured.
 
 ## Key facts
 

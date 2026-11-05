@@ -53,6 +53,14 @@ UCI_SOURCE = {
     'url': 'https://www.ucicinemas.it/cinema/uci-cinemas-megalo/',
 }
 
+SPACE_SOURCE = {
+    'id': 'space',
+    'name': 'The Space Porto Allegro',
+    'city': 'Montesilvano',
+    'driveMinutes': 25,
+    'url': 'https://www.thespacecinema.it/cinema/montesilvano/al-cinema',
+}
+
 TEST_SOURCE = {
     'id': 'test',
     'name': 'Cinema Test',
@@ -144,6 +152,90 @@ UCI_JSON = '''
     {"title": "Empty", "screens": []},
     {"title": "No Screens"},
     "not a movie"
+  ]
+}
+'''
+
+
+SPACE_JSON = '''
+{
+  "responseCode": 200,
+  "errorMessage": null,
+  "result": [
+    {
+      "filmTitle": "FAST & FURIOUS - 25MO ANNIVERSARIO",
+      "filmUrl": "https://www.thespacecinema.it/film/fast-and-furious",
+      "releaseDate": "2026-10-29T00:00:00",
+      "showingGroups": [{"date": "2026-11-05T00:00:00", "sessions": [
+        {"sessionId": "1", "startTime": "2026-11-05T16:10:00",
+         "showTimeWithTimeZone": "2026-11-05T16:10:00+01:00",
+         "bookingUrl": "/prenotare-il-biglietto/summary/1026/HO1/1",
+         "attributes": [{"name": "ITALIANO", "attributeType": "Language"},
+                        {"name": "2D", "attributeType": "Session"}]},
+        {"sessionId": "2", "startTime": "2026-11-05T18:20:00",
+         "bookingUrl": "/prenotare-il-biglietto/summary/1026/HO1/2",
+         "attributes": [{"name": "ITALIANO", "attributeType": "Language"}]},
+        {"sessionId": "3", "startTime": "2026-11-05T21:30:00",
+         "bookingUrl": "/prenotare-il-biglietto/summary/1026/HO1/3",
+         "attributes": [{"name": "ITALIANO", "attributeType": "Language"}]},
+        {"sessionId": "4", "startTime": "2026-11-05T18:50:00",
+         "bookingUrl": "/prenotare-il-biglietto/summary/1026/HO1/4",
+         "attributes": [{"name": "LINGUA ORIGINALE", "attributeType": "Language"},
+                        {"name": "2D", "attributeType": "Session"}]}
+      ]}]
+    },
+    {
+      "filmTitle": "DIO RIDE",
+      "filmUrl": "https://www.thespacecinema.it/film/dio-ride",
+      "releaseDate": "2026-10-29T00:00:00",
+      "showingGroups": [{"date": "2026-11-05T00:00:00", "sessions": [
+        {"sessionId": "5", "startTime": "2026-11-05T16:00:00",
+         "attributes": [{"name": "ITALIANO", "attributeType": "Language"}]},
+        {"sessionId": "6", "startTime": "2026-11-05T18:45:00",
+         "attributes": [{"name": "LINGUA ORIGINALE", "attributeType": "Language"}]}
+      ]}]
+    },
+    {
+      "filmTitle": "English Film",
+      "filmUrl": "https://www.thespacecinema.it/film/english-film",
+      "releaseDate": "2026-01-01T00:00:00",
+      "showingGroups": [{"date": "2026-11-05T00:00:00", "sessions": [
+        {"sessionId": "7", "startTime": "2026-11-05T20:00:00",
+         "attributes": [{"name": "ITALIANO", "attributeType": "Language"}]},
+        {"sessionId": "8", "startTime": "not-a-time",
+         "attributes": [{"name": "ITALIANO", "attributeType": "Language"}]}
+      ]}]
+    },
+    {
+      "filmTitle": "No Attributes",
+      "filmUrl": "https://www.thespacecinema.it/film/no-attributes",
+      "showingGroups": [{"date": "2026-11-05T00:00:00", "sessions": [
+        {"sessionId": "9", "startTime": "2026-11-05T21:00:00"}
+      ]}]
+    },
+    {
+      "filmTitle": "Unknown Language",
+      "showingGroups": [{"date": "2026-11-05T00:00:00", "sessions": [
+        {"sessionId": "10", "startTime": "2026-11-05T22:00:00",
+         "attributes": [{"name": "SPAGNOLO", "attributeType": "Language"}]}
+      ]}]
+    },
+    {
+      "filmTitle": "Italian Film",
+      "releaseDate": "2010-01-01T00:00:00",
+      "showingGroups": [{"date": "2026-11-05T00:00:00", "sessions": [
+        {"sessionId": "11", "startTime": "2026-11-05T22:15:00",
+         "attributes": [{"name": "ITALIANO", "attributeType": "Language"}]}
+      ]}]
+    },
+    {
+      "filmTitle": "Midnight",
+      "showingGroups": [{"date": "2026-11-05T00:00:00", "sessions": [
+        {"sessionId": "12", "startTime": "2026-11-06T00:15:00"}
+      ]}]
+    },
+    {"filmTitle": ""},
+    "not a film"
   ]
 }
 '''
@@ -325,6 +417,76 @@ class UciParserTests(unittest.TestCase):
         self.assertEqual(cinema.parse_uci({'data': ['x', None]}, UCI_SOURCE, KNOWN), [])
 
 
+class SpaceParserTests(unittest.TestCase):
+    def setUp(self):
+        self.rows = cinema.parse_space(json.loads(SPACE_JSON), SPACE_SOURCE, KNOWN)
+        self.by_title = {}
+        for row in self.rows:
+            self.by_title.setdefault(row['title'], []).append(row)
+
+    def test_mixed_italian_and_vo_sessions_stay_separate(self):
+        fast = self.by_title['FAST & FURIOUS - 25MO ANNIVERSARIO']
+        self.assertEqual([row['time'] for row in fast], ['16:10', '18:20', '21:30', '18:50'])
+        self.assertEqual([row['classification'] for row in fast],
+                         ['unknown', 'unknown', 'unknown', 'original'])
+        self.assertTrue(all(row['date'] == '2026-11-05' for row in fast))
+
+    def test_italian_override_marks_italian_sessions(self):
+        dio = self.by_title['DIO RIDE']
+        self.assertEqual(len(dio), 2)
+        self.assertTrue(all(row['classification'] == 'italian' for row in dio))
+
+    def test_italiano_without_override_is_unknown_not_dubbed(self):
+        english = self.by_title['English Film']
+        self.assertEqual(len(english), 1)
+        self.assertEqual(english[0]['classification'], 'unknown')
+        self.assertNotIn('dubbed', {row['classification'] for row in self.rows})
+        self.assertEqual(self.by_title['No Attributes'][0]['classification'], 'unknown')
+        self.assertEqual(self.by_title['Unknown Language'][0]['classification'], 'unknown')
+
+    def test_known_year_mismatch_rejects_the_italian_override(self):
+        self.assertEqual(self.by_title['Italian Film'][0]['classification'], 'unknown')
+
+    def test_source_and_booking_links(self):
+        fast = self.by_title['FAST & FURIOUS - 25MO ANNIVERSARIO']
+        vo = fast[-1]
+        self.assertEqual(vo['sourceUrl'],
+                         'https://www.thespacecinema.it/film/fast-and-furious')
+        self.assertEqual(vo['bookingUrl'],
+                         'https://www.thespacecinema.it/prenotare-il-biglietto/summary/1026/HO1/4')
+        self.assertEqual(vo['cinemaId'], 'space')
+        self.assertEqual(vo['driveMinutes'], 25)
+        self.assertEqual(self.by_title['No Attributes'][0]['bookingUrl'],
+                         'https://www.thespacecinema.it/film/no-attributes')
+
+    def test_session_date_wins_over_the_group_date(self):
+        row = self.by_title['Midnight'][0]
+        self.assertEqual((row['date'], row['time']), ('2026-11-06', '00:15'))
+
+    def test_malformed_rows_are_skipped_without_inventing_sessions(self):
+        self.assertEqual(len(self.rows), 11)
+        self.assertNotIn('', self.by_title)
+        self.assertEqual(len(self.by_title['English Film']), 1)
+
+    def test_film_without_groups_produces_no_rows(self):
+        payload = {'result': [{'filmTitle': 'Empty'}]}
+        self.assertEqual(cinema.parse_space(payload, SPACE_SOURCE, KNOWN), [])
+
+    def test_api_shape_change_raises_instead_of_returning_zero_rows(self):
+        for payload in ({}, {'result': None}, {'result': 'nope'}, [], 'x',
+                        {'result': [{'filmTitle': 'Bad', 'showingGroups': 'nope'}]},
+                        {'result': [{'filmTitle': 'Bad',
+                                     'showingGroups': [{'sessions': 'nope'}]}]}):
+            with self.subTest(payload=payload):
+                with self.assertRaises(ValueError):
+                    cinema.parse_space(payload, SPACE_SOURCE, KNOWN)
+
+    def test_api_error_message_is_surfaced_verbatim(self):
+        with self.assertRaisesRegex(ValueError, 'Token scaduto'):
+            cinema.parse_space({'errorMessage': 'Token scaduto', 'result': None},
+                               SPACE_SOURCE, KNOWN)
+
+
 class ContractTests(unittest.TestCase):
     ROW_KEYS = {
         'id', 'title', 'cinemaId', 'cinema', 'city', 'date', 'time', 'language',
@@ -351,13 +513,19 @@ class ContractTests(unittest.TestCase):
 
     def test_manual_sources_are_manual_and_have_no_loader(self):
         statuses = {item['id']: item for item in cinema.source_statuses()}
-        for source_id in ('massimo', 'santandrea', 'space'):
+        for source_id in ('massimo', 'santandrea'):
             self.assertEqual(statuses[source_id]['status'], 'manual')
             self.assertTrue(statuses[source_id]['message'])
             self.assertNotIn(source_id, cinema.LOADERS)
         source_ids = {item['id'] for item in cinema.SOURCES}
         self.assertTrue(set(cinema.LOADERS) <= source_ids)
-        self.assertEqual(set(cinema.LOADERS), {'arca', 'universo', 'uci'})
+        self.assertEqual(set(cinema.LOADERS), {'arca', 'universo', 'uci', 'space'})
+
+    def test_space_source_uses_the_canonical_cinema_page(self):
+        status = next(item for item in cinema.source_statuses() if item['id'] == 'space')
+        self.assertEqual(status['url'],
+                         'https://www.thespacecinema.it/cinema/montesilvano/al-cinema')
+        self.assertEqual(status['driveMinutes'], 25)
 
 
 DATE_CLAIM = re.compile(
@@ -395,6 +563,27 @@ class ManualSourceTests(unittest.TestCase):
             status = next(item for item in data['sources'] if item['id'] == source_id)
             self.assertEqual(status['status'], 'manual')
             self.assertNotIn(source_id, cinema.LOADERS)
+
+
+class SourceErrorTests(unittest.TestCase):
+    def test_failing_loader_reports_error_with_the_exact_reason(self):
+        original_loaders = cinema.LOADERS
+        original_cache, original_at = cinema.CACHE, cinema.CACHE_AT
+
+        def failing_loader(source, offset, known):
+            raise RuntimeError('HTTP Error 503: Service Unavailable')
+
+        try:
+            cinema.LOADERS = {'space': failing_loader}
+            data = cinema.gather(refresh=True)
+        finally:
+            cinema.LOADERS = original_loaders
+            cinema.CACHE, cinema.CACHE_AT = original_cache, original_at
+        status = next(item for item in data['sources'] if item['id'] == 'space')
+        self.assertEqual(status['status'], 'error')
+        self.assertIn('0/7 giorni letti', status['message'])
+        self.assertIn('HTTP Error 503', status['message'])
+        self.assertEqual(data['screenings'], [])
 
 
 class HostValidationTests(unittest.TestCase):
