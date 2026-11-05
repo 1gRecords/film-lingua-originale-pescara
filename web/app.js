@@ -81,6 +81,10 @@ const MESSAGES = {
     'notes.sevenDays': 'Sette giorni di programmazione; la nazionalità italiana non dimostra la lingua originale.',
     'footer.about': 'Pescara e dintorni · Nessun account, nessuna installazione di pacchetti.',
     'footer.times': 'I tempi in auto sono stime dal centro di Pescara, senza traffico in tempo reale. Controlla lingua e orario sul sito del cinema prima di partire.',
+    'footer.tmdb': 'Questo prodotto usa l’API di TMDB ma non è approvato o certificato da TMDB.',
+    'tmdb.rating': 'TMDB {rating}/10 · {votes} voti',
+    'tmdb.plotFallback': 'Trama non disponibile in italiano: mostro quella inglese.',
+    'tmdb.plotMissing': 'Trama non disponibile.',
     'language.italian': 'Italiano',
     'language.dubbed': 'Doppiato',
     'language.original': 'Versione originale',
@@ -183,6 +187,10 @@ const MESSAGES = {
     'notes.sevenDays': 'Seven days of showtimes; Italian nationality alone does not prove the original language.',
     'footer.about': 'Pescara and surroundings · No account, no package installation.',
     'footer.times': 'Driving times are estimates from central Pescara, without live traffic. Check language and time on the cinema site before you leave.',
+    'footer.tmdb': 'This product uses the TMDB API but is not endorsed or certified by TMDB.',
+    'tmdb.rating': 'TMDB {rating}/10 · {votes} votes',
+    'tmdb.plotFallback': 'Plot not available in Italian; showing the English one.',
+    'tmdb.plotMissing': 'Plot not available.',
     'language.italian': 'Italian',
     'language.dubbed': 'Dubbed',
     'language.original': 'Original version',
@@ -312,6 +320,42 @@ function link(text, url, className) {
   anchor.target = '_blank';
   anchor.rel = 'noopener noreferrer';
   return anchor;
+}
+
+function tmdbFilm(item) {
+  const films = state.data?.tmdb?.films;
+  if (!films || typeof films !== 'object' || typeof item.tmdbKey !== 'string') return null;
+  const film = films[item.tmdbKey];
+  return film && typeof film === 'object' ? film : null;
+}
+
+function tmdbBlock(item) {
+  const film = tmdbFilm(item);
+  if (!film) return null;
+  const block = element('div', 'tmdb');
+  const rating = typeof film.rating === 'number' && Number.isFinite(film.rating) ? film.rating : null;
+  const votes = typeof film.votes === 'number' && Number.isFinite(film.votes) ? film.votes : 0;
+  if (rating !== null) {
+    block.append(element('p', 'tmdb-rating', t('tmdb.rating', {
+      rating: rating.toFixed(1),
+      votes: new Intl.NumberFormat(locale()).format(votes)
+    })));
+  }
+  const italian = typeof film.overviewIt === 'string' ? film.overviewIt.trim() : '';
+  const english = typeof film.overviewEn === 'string' ? film.overviewEn.trim() : '';
+  let plot = state.lang === 'en' ? english : italian;
+  let fallback = false;
+  if (!plot && state.lang === 'it' && english) {
+    plot = english;
+    fallback = true;
+  }
+  if (plot) {
+    block.append(element('p', 'tmdb-plot', plot));
+    if (fallback) block.append(element('p', 'tmdb-note', t('tmdb.plotFallback')));
+  } else if (rating !== null) {
+    block.append(element('p', 'tmdb-note', t('tmdb.plotMissing')));
+  }
+  return block.childNodes.length ? block : null;
 }
 
 function dateLabel(value) {
@@ -458,6 +502,8 @@ function rowCard(item) {
   info.append(badges);
   const evidence = evidenceText(item);
   if (evidence) info.append(element('p', 'evidence', evidence));
+  const extra = tmdbBlock(item);
+  if (extra) info.append(extra);
   const place = element('div', 'screening-place');
   place.append(element('p', 'place-name', item.cinema || t('place.defaultCinema')), element('p', 'place-meta', t('place.meta', { city: item.city || t('place.defaultCity'), minutes: item.driveMinutes })));
   const actions = element('div', 'actions');

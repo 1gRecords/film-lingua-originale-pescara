@@ -14,3 +14,8 @@
 h1 .title-text{color:var(--ink)}
 .primary .button-label{font-size:14px;font-weight:700;line-height:1.2}
 @media(max-width:580px){.masthead{flex-wrap:wrap;row-gap:8px}.masthead-tools{margin-left:auto;gap:10px}.radius{max-width:none}.lang-option{min-height:34px;padding:4px 7px;font-size:11px;gap:4px}.lang-flag{width:15px;height:10px}.primary .button-label{font-size:12px}}
+.tmdb{border-top:1px solid var(--line);margin-top:12px;padding-top:10px;max-width:620px}
+.tmdb-rating{font-size:12px;font-weight:700;letter-spacing:.3px;margin:0 0 5px;color:var(--ink)}
+.tmdb-plot{font-size:13px;line-height:1.55;color:var(--muted);margin:0}
+.tmdb-note{font-size:11px;font-style:italic;color:var(--muted);margin:5px 0 0}
+.tmdb-credit{font-size:11px;color:var(--muted);margin-top:10px}

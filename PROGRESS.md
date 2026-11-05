@@ -4,7 +4,7 @@
 
 **Acceptance for this handover:** every command, link and "Expected" line from the supplied plan is present; all six revised steps are unchecked; no plan step has been run; `git log` contains a commit named "Handover snapshot" (or the missing git identity is reported).
 
-**State:** Steps 1–6 of 6 complete. Step 1 (2026-11-04): backend correctness and tests. Step 2 (2026-11-05): live run and source audit; server stopped afterwards; no installs or deletes. Step 3 (2026-11-05): Cityplex has no per-screening language token; both venues stay `manual` with date-free messages and no parser. Step 4 (2026-11-05): The Space official adapter live, `7/7 giorni letti`, 46 offline tests passing, server stopped afterwards. Step 5 (2026-11-05): frontend null/notes/driveMinutes guards, display-only title normalization, explicit loading state, all states and both widths verified; no backend data changed; server stopped afterwards. Step 6 (2026-11-05): README, launcher, run script and final acceptance; 46 tests, 4 live sources, 2 manual, launcher opened Firefox, server stopped afterwards. Tracking applies to the six revised steps; the earlier five-step table is kept as history and is not tracked. Step 7 (2026-11-05): Italian/English switch with a persisted choice, backend translation codes, and bilingual dates, states and messages; 58 tests; server stopped afterwards. Follow-up (2026-11-05): Windows flag-emoji fallback replaced with inline SVG flags; 58 tests; server stopped afterwards.
+**State:** Steps 1–6 of 6 complete. Step 1 (2026-11-04): backend correctness and tests. Step 2 (2026-11-05): live run and source audit; server stopped afterwards; no installs or deletes. Step 3 (2026-11-05): Cityplex has no per-screening language token; both venues stay `manual` with date-free messages and no parser. Step 4 (2026-11-05): The Space official adapter live, `7/7 giorni letti`, 46 offline tests passing, server stopped afterwards. Step 5 (2026-11-05): frontend null/notes/driveMinutes guards, display-only title normalization, explicit loading state, all states and both widths verified; no backend data changed; server stopped afterwards. Step 6 (2026-11-05): README, launcher, run script and final acceptance; 46 tests, 4 live sources, 2 manual, launcher opened Firefox, server stopped afterwards. Tracking applies to the six revised steps; the earlier five-step table is kept as history and is not tracked. Step 7 (2026-11-05): Italian/English switch with a persisted choice, backend translation codes, and bilingual dates, states and messages; 58 tests; server stopped afterwards. Follow-up (2026-11-05): Windows flag-emoji fallback replaced with inline SVG flags; 58 tests; server stopped afterwards. Step 8 (2026-11-05): TMDB ratings and Italian/English plots, optional local token, 30-day cache and manual overrides; 73 tests; 25 of 30 distinct titles matched live; first refresh 3.99s, cached refresh 1.41s; server stopped afterwards.
 
 **Rule:** Whenever a plan step finishes, tick its single checkbox and replace that step's Evidence line with the command and observed result. Unverified work does not get evidence.
 
@@ -17,6 +17,7 @@
 - Step 5 of 6: frontend fields, safe rendering and all states. See its Evidence line below.
 - Step 6 of 6: README, launcher, run script, final report. See its Evidence line below.
 - Step 7 of 7: English version. See its Evidence line below.
+- Step 8 of 8: TMDB rating and plot. See its Evidence line below.
 
 ## PLAN (copied in full)
 
@@ -356,13 +357,50 @@ Expected: every test passes; the JS syntax check exits 0; IT and EN both render;
 
 ---
 
+### 8. TMDB rating and plot
+
+- [x] **Step 8 of 8 — TMDB rating and plot**
+  **Evidence:** 2026-11-05. TDD: the new `TmdbTests` failed first with `Ran 72 tests` / `19 errors` (`NotImplementedError`) before `tmdb.py`, then `py -3 -m unittest -v` → `Ran 73 tests in 0.044s` / `OK`, exit 0. `node --check web/app.js` → exit 0; IT/EN dictionaries 104/104 keys with no difference. `git check-ignore -v tmdb-key.txt tmdb-cache.json` → `.gitignore:4:tmdb-key.txt` and `.gitignore:5:tmdb-cache.json`, exit 0; the key never appeared in the API JSON or the cache (`key_in_cache=False key_in_api=False`). Live server on 8765: `/health` 200; `/api/screenings?refresh=1` 200 in 3.99s, 715 rows; `arca`, `universo`, `uci`, `space` `ok`; `massimo`, `santandrea` `manual`. TMDB: 30 distinct cleaned titles, 25 matched, 5 unmatched; 40 film keys (year/no-year variants) and 8 miss keys. Five examples (cinema title || TMDB title || year || rating || first 80 chars of Italian plot): `Je so' pazzo` || `Je so’ pazzo` || 2026 || 6.4 (31 votes) || `Je so’ pazzo è un ritratto intenso di Pino Daniele, un’anima ribelle nata nei vi`; `L'estranea` || `L'estranea` || 2026 || 7.4 (172 votes) || `La trama ruota attorno a una donna che si presenta all’improvviso a casa di sua`; `Clayface` || `Clayface` || 2026 || 7.4 (387 votes) || `La terrificante discesa di un uomo, da astro nascente di Hollywood a mostro asse`; `IT ENDS` || `It Ends` || 2026 || 5.9 (106 votes) || `Quattro amici appena diplomati partono per un giro in auto a tarda notte, speran`; `Shaun vita da pecora - Operazione Z.U.C.C.A.` || `Shaun, vita da pecora - Operazione Z.U.C.C.A.` || 2026 || 7.4 (53 votes) || `Halloween è alle porte. Shaun e tutti gli animali della fattoria si preparano pe`. Unmatched: `Hope` (ambiguous: multiple exact titles), `Fast and Furious - 25° Anniversario` (no results), `FAST & FURIOUS - 25MO ANNIVERSARIO` (no results, same film), `Stray Kids World Tour RUN IT C.A.` (no results), `Il Gruffalò e la sua piccolina + Bastoncino` (no results). A yearless `Ragione e sentimento`/`Ice Cream Man` search was ambiguous while the year-qualified Space row matched; no match was forced. Cache: first refresh 3.99s, second `?refresh=1` 1.41s (2.8×), `tmdb-cache.json` 41,811 bytes and its mtime stayed unchanged after the second refresh. Headless Chrome DOM: 193 `tmdb-rating`, 193 `tmdb-plot`, 3 fallback notes `Trama non disponibile in italiano: mostro quella inglese.`, footer `Questo prodotto usa l’API di TMDB ma non è approvato o certificato da TMDB.` with `https://www.themoviedb.org/`; screenshot `.pandacode/progress-shots/step8.png`. Server stopped: no listener on 8765, 0 python processes. The official logo was not downloaded; the credit is a text link.
+
+**Files:** `.gitignore`, `tmdb.py` (new), `cinema.py`, `test_cinema.py`, `web/app.js`, `web/index.html`, `web/style.css`, `README.md`, `tmdb-overrides.json` (new), `PROGRESS.md`.
+
+**Goal:** For each distinct film, show the TMDB rating (`TMDB 7.4/10`, with vote count) and a short plot in the current UI language. If the Italian plot is empty, show the English one and say so. A missing key file leaves the app exactly as before, just without ratings and plots.
+
+**Changes**
+- Read the API Read Access Token from `tmdb-key.txt` (v4 bearer). The file is gitignored before any code is written and is never logged, printed or committed. It is sent only to `api.themoviedb.org`.
+- Clean the cinema title: drop suffixes such as `- Lingua originale`, `(VO)` / `(V.O.)`, `Lingua Originale`; fold capitals and accents for comparison.
+- Search `GET /3/search/movie` with `language=it-IT` (add the year when a source supplies one); on zero results retry without the year, then with `en-US`.
+- Accept only:
+  - exactly one result whose normalised `title` or `original_title` equals the cleaned title, with the release year within 1 year when known; or
+  - a single search result with at least the minimum vote count (50) when no exact title matches.
+  Multiple exact matches, or several unrelated results, stay unmatched: show nothing.
+- `tmdb-overrides.json` maps a cleaned title to a TMDB id, or to `null` to block a match. An override wins over search; changing it bypasses stale cache entries.
+- Fetch `GET /3/movie/{id}?language=it-IT` and `?language=en-US` for `overview`, `vote_average`, `vote_count`, title and year. Empty Italian overview falls back to English with a visible note.
+- `tmdb-cache.json` (gitignored) stores matched and unmatched results for at most 30 days, far below TMDB’s 6-month limit. Only uncached films are looked up. At most 4 requests run at once. A 429 waits and retries once. Any TMDB error is caught and never breaks `/api/screenings`.
+- Frontend: compact rating line and plot under each screening, language-aware on the IT/EN switch; no TMDB block when no data. Footer text credit with a link to `https://www.themoviedb.org/`. The official logo is not downloaded, so the text link is used.
+- Tests with inline TMDB JSON fixtures and an injected transport, no network: title cleaning, exact match, year mismatch, ambiguous result, override (id and null), missing key, empty Italian plot, 429 retry and cache reuse.
+
+**Proof**
+```powershell
+py -3 -m unittest -v
+node --check web/app.js
+git check-ignore -v tmdb-key.txt tmdb-cache.json
+# live server: one refresh, five real films with rating and IT plot, match counts, then a timed second refresh
+```
+
+Expected: every test passes; the JS check exits 0; the key and cache are ignored; five films show matching TMDB title/year/rating/Italian plot; unmatched films have a reason; the second refresh is faster because the disk cache is reused; server stopped afterwards.
+
+**What could go wrong:** TMDB blocked or the token invalid; a remake matched to the wrong year; a localised title differs from both TMDB titles; the extra requests push a refresh past the frontend’s 60-second abort; a cache write races a concurrent request; the key leaks into a log or a commit.
+
+---
+
 ## Scope note
 
 The revised plan is six steps, within the limit. Step 4 is the critique-driven addition; if you want the original five-phase scope, drop step 4 and renumber 5–6 — the other steps stand on their own. No files were edited, no server was started, and no installs or deletions were made. If approved, I would execute step 1 only and stop after `python -B -m unittest -v test_cinema` passes. Step 7 extends the plan to seven steps; the “execute step 1 only” sentence is kept as handover history.
 
 ## Next
 
-1. All seven steps are complete and evidenced. No further step is planned; the remaining work is listed under Open issues.
+1. All eight steps are complete and evidenced. No further step is planned; the remaining work is listed under Open issues.
 
 ## Open issues
 
@@ -376,18 +414,24 @@ The revised plan is six steps, within the limit. Step 4 is the critique-driven a
 - If port 8765 is busy, `Avvia Cinema.cmd` ends with a raw Python traceback and `pause`. The README documents `--port`; the launcher message is not friendly.
 - The English UI is a hand-written dictionary. New UI strings must be added to both the `it` and `en` entries in `web/app.js`; parity was checked ad hoc in step 7, but no committed test enforces it.
 - A failed source’s raw diagnostic is passed through in both languages; only the surrounding template is translated. The live step 7 run had no failed source, so no raw Italian diagnostic was visible in EN.
+- TMDB is optional. Without `tmdb-key.txt` there are no ratings or plots, by design; the footer credit stays visible.
+- TMDB matching is deliberately conservative. Five distinct cleaned titles stayed unmatched in the live run; `tmdb-overrides.json` is the manual fix. A yearless row of a film can stay without TMDB even when a year-qualified row of the same title matched.
+- Four upcoming titles have no TMDB votes, so TMDB returns `vote_average` 0.0; the UI shows `TMDB 0.0/10 · 0 voti` rather than inventing a rating.
+- The official TMDB logo was not downloaded (no network asset downloads). The footer uses the required text credit and a link to `themoviedb.org`.
 
 ## Open questions
 
 - None for step 4. The plan’s 2026-11-04 Fast and Furious/Rammstein expectations could not be replayed on 2026-11-05 because the programme changed; the step 4 Evidence records what was measured.
 - None for step 5. The 60-second fetch timeout was not changed because the measured refresh was 1.49–1.92s; the visible loading status was added anyway.
 - None for step 6. The live counts moved slightly between steps 4 and 6, so the README does not pin exact daily counts.
-- None for step 7. The IT and EN dictionaries have the same 100 keys, and the live EN visible-text scan found no Italian app copy outside film titles and venue/city names.
+- None for step 7. The IT and EN dictionaries have the same 104 keys after step 8 (100 at step 7 plus the four TMDB strings), and the live EN visible-text scan found no Italian app copy outside film titles and venue/city names.
+- None for step 8. The live token was valid, 25 of 30 distinct cleaned titles matched, and the five misses are recorded with their reasons. The official logo was not downloaded, so the footer uses a text link.
 
 ## Key facts
 
 - Repo root: `C:\DEV\Cinema`. Git 2.55.0.windows.4. No `.git` existed before this handover.
-- `PROGRESS.md` did not exist before this file. `.gitignore` excludes `__pycache__/`, `*.pyc`, `.cache/`.
+- `PROGRESS.md` did not exist before this file. `.gitignore` excludes `__pycache__/`, `*.pyc`, `.cache/`, `tmdb-key.txt`, `tmdb-cache.json` and `tmdb-cache.json.tmp`.
 - The plan's findings and "Expected" lines are claims from the 2026-11-04 handover. Steps 1–6 re-measured the parts they exercised; the Step 2 and Step 6 Evidence lines record the live results.
 - At handover, only the handover operations were run: file creation, `git init`, `git add -A`, `git commit -m "Handover snapshot"`. No plan command was executed then.
 - Step 7 stores the language in `localStorage` under `cinemavo.lang`; Italian is used when the key is absent, invalid or storage is blocked.
+- Step 8 reads the TMDB token only from `tmdb-key.txt` and sends it only to `api.themoviedb.org`. `tmdb-overrides.json` (tracked) maps a cleaned title to a TMDB id or `null`. The cache and the key are gitignored; the key is never in the API JSON or the cache.

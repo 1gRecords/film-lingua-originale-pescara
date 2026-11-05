@@ -20,6 +20,8 @@ import urllib.request
 from urllib.parse import urljoin, urlparse, parse_qs
 import webbrowser
 
+import tmdb
+
 ROOT = Path(__file__).resolve().parent
 UCI_API = 'https://myuci---uci-backend-production-nfluwp7wga-oc.a.run.app/api'
 SPACE_BASE = 'https://www.thespacecinema.it'
@@ -37,6 +39,7 @@ SOURCES = [
 CACHE = None
 CACHE_AT = 0
 CACHE_TTL = 600
+TMDB_KEY_PATH = tmdb.KEY_PATH
 LOCK = threading.Lock()
 UCI_BASE = 'https://ucicinemas.it'
 DAYS = 7
@@ -271,7 +274,7 @@ def screening(source, title, day, clock, label='', booking='', known=None,
             'date':day, 'time':clock, 'language':found['language'],
             'classification':found['classification'], 'evidence':found['evidence'],
             'languageCode':found['languageCode'], 'evidenceCode':found['evidenceCode'],
-            'evidenceParams':found['evidenceParams'],
+            'evidenceParams':found['evidenceParams'], 'year':year,
             'sourceUrl':link,
             'bookingUrl':http_url(booking, link), 'driveMinutes':source['driveMinutes']}
 
@@ -542,6 +545,10 @@ def gather(refresh=False):
                         'Tempi di guida stimati dal centro di Pescara; non sono misure del traffico attuale.',
                         'Sette giorni di programmazione; la nazionalità italiana non dimostra la lingua originale.'],
                'noteCodes':list(NOTE_CODES)}
+        try:
+            tmdb.enrich(CACHE, key_path=TMDB_KEY_PATH)
+        except Exception:
+            pass
         CACHE_AT=time.monotonic()
         return CACHE
 

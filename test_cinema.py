@@ -3,12 +3,14 @@
 Every fixture is inline. Nothing in this module opens a socket, so the suite
 also proves that the parsers do not depend on the live sites.
 """
+import copy
 import json
 import re
 import unittest
 from datetime import datetime, timezone
 
 import cinema
+import tmdb
 
 
 KNOWN = {
@@ -491,7 +493,7 @@ class ContractTests(unittest.TestCase):
     ROW_KEYS = {
         'id', 'title', 'cinemaId', 'cinema', 'city', 'date', 'time', 'language',
         'classification', 'evidence', 'sourceUrl', 'bookingUrl', 'driveMinutes',
-        'languageCode', 'evidenceCode', 'evidenceParams',
+        'languageCode', 'evidenceCode', 'evidenceParams', 'year',
     }
 
     def test_screening_row_has_every_contract_field(self):
@@ -738,6 +740,253 @@ class UrlValidationTests(unittest.TestCase):
         kept = cinema.screening(TEST_SOURCE, 'Film', '2026-11-04', '18:00',
                                 '', 'https://tickets.example/x', KNOWN)
         self.assertEqual(kept['bookingUrl'], 'https://tickets.example/x')
+
+
+TMDB_SEARCH = '''
+{
+  "page": 1,
+  "results": [
+    {"id": 438631, "title": "Dune", "original_title": "Dune",
+     "release_date": "2021-09-15", "vote_average": 7.786, "vote_count": 15891},
+    {"id": 841, "title": "Dune", "original_title": "Dune",
+     "release_date": "1984-12-14", "vote_average": 6.195, "vote_count": 3603},
+    {"id": 881460, "title": "Planet Dune", "original_title": "Planet Dune",
+     "release_date": "2021-10-29", "vote_average": 5.0, "vote_count": 73}
+  ],
+  "total_results": 3
+}
+'''
+
+TMDB_DETAIL_IT = '''
+{"id": 438631, "title": "Dune", "original_title": "Dune",
+ "release_date": "2021-09-15",
+ "overview": "Paul Atreides, un giovane brillante e dotato, deve recarsi sul pianeta piu pericoloso dell'universo.",
+ "vote_average": 7.786, "vote_count": 15891}
+'''
+
+TMDB_DETAIL_EN = '''
+{"id": 438631, "title": "Dune", "original_title": "Dune",
+ "release_date": "2021-09-15",
+ "overview": "Paul Atreides, a brilliant and gifted young man, must travel to the most dangerous planet in the universe.",
+ "vote_average": 7.786, "vote_count": 15891}
+'''
+
+TMDB_DETAIL_IT_EMPTY = '''
+{"id": 438631, "title": "Dune", "original_title": "Dune",
+ "release_date": "2021-09-15", "overview": "",
+ "vote_average": 7.786, "vote_count": 15891}
+'''
+
+
+class TmdbTests(unittest.TestCase):
+    """Inline TMDB JSON only; every transport is a local function."""
+
+    def payload(self, title='DUNE - Lingua originale', year=2021):
+        return {'screenings': [{'title': title, 'year': year}]}
+
+    def fixture(self, calls, search=TMDB_SEARCH, detail_it=TMDB_DETAIL_IT,
+                detail_en=TMDB_DETAIL_EN):
+        def send(url, headers):
+            calls.append(url)
+            self.assertEqual(headers['Authorization'], 'Bearer test-token')
+            if '/search/movie' in url:
+                return json.loads(search)
+            if 'language=it-IT' in url:
+                return json.loads(detail_it)
+            return json.loads(detail_en)
+        return send
+
+    def test_clean_title_removes_original_language_suffixes_only(self):
+        cases = {
+            'FAST & FURIOUS - Lingua originale': 'FAST & FURIOUS',
+            'Dune (VO)': 'Dune',
+            'Dune (V.O.)': 'Dune',
+            'Stray Kids … Lingua Originale': 'Stray Kids',
+            'Rammstein – Lingua originale': 'Rammstein',
+            'Dune - Parte 2': 'Dune - Parte 2',
+        }
+        for raw, expected in cases.items():
+            with self.subTest(raw):
+                self.assertEqual(tmdb.clean_title(raw), expected)
+
+    def test_normalize_title_folds_case_accents_and_spacing(self):
+        self.assertEqual(tmdb.normalize_title('  Amélie  '),
+                         tmdb.normalize_title('AMELIE'))
+        self.assertNotEqual(tmdb.normalize_title('Fast & Furious'),
+                            tmdb.normalize_title('Fast and Furious'))
+
+    def test_exact_title_match_uses_the_year_to_pick_the_right_film(self):
+        results = json.loads(TMDB_SEARCH)['results']
+        match, reason = tmdb.select_match('Dune', results, 2021)
+        self.assertEqual(match['id'], 438631)
+        self.assertEqual(reason, 'exact')
+
+    def test_known_year_mismatch_is_not_accepted(self):
+        results = json.loads(TMDB_SEARCH)['results']
+        match, reason = tmdb.select_match('Dune', results, 1990)
+        self.assertIsNone(match)
+        self.assertIn('year', reason)
+        old_only = [item for item in results if item['release_date'].startswith('1984')]
+        match, reason = tmdb.select_match('Dune', old_only, 2021)
+        self.assertIsNone(match)
+        self.assertIn('year', reason)
+        no_date = [{'id': 11, 'title': 'Duna', 'original_title': 'Duna',
+                    'vote_count': 100}]
+        match, reason = tmdb.select_match('Dune', no_date, 2021)
+        self.assertIsNone(match)
+        self.assertIn('year', reason)
+
+    def test_ambiguous_exact_titles_show_nothing(self):
+        results = [
+            {'id': 1, 'title': 'Dune', 'original_title': 'Dune',
+             'release_date': '2021-01-01', 'vote_count': 100},
+            {'id': 2, 'title': 'Dune', 'original_title': 'Dune',
+             'release_date': '2021-06-01', 'vote_count': 100},
+        ]
+        match, reason = tmdb.select_match('Dune', results)
+        self.assertIsNone(match)
+        self.assertIn('ambig', reason)
+
+        unrelated = [
+            {'id': 3, 'title': 'Planet Dune', 'original_title': 'Planet Dune',
+             'release_date': '2021-01-01', 'vote_count': 200},
+            {'id': 4, 'title': 'Dune Drifter', 'original_title': 'Dune Drifter',
+             'release_date': '2020-01-01', 'vote_count': 200},
+        ]
+        match, reason = tmdb.select_match('Dune', unrelated, 2021)
+        self.assertIsNone(match)
+        self.assertIn('no exact', reason)
+
+    def test_single_unrelated_result_needs_the_minimum_vote_count(self):
+        only = [{'id': 9, 'title': 'Duna', 'original_title': 'Duna',
+                 'release_date': '2021-01-01', 'vote_count': 60}]
+        match, reason = tmdb.select_match('Dune', only, 2021)
+        self.assertEqual(match['id'], 9)
+        self.assertEqual(reason, 'single result')
+        low = [{'id': 10, 'title': 'Duna', 'original_title': 'Duna',
+                'release_date': '2021-01-01', 'vote_count': 4}]
+        match, reason = tmdb.select_match('Dune', low, 2021)
+        self.assertIsNone(match)
+        self.assertIn('votes', reason)
+
+    def test_enrich_attaches_rating_and_both_plots(self):
+        calls = []
+        payload = tmdb.enrich(self.payload(), token='test-token', cache={},
+                              cache_path=None, overrides={},
+                              transport=self.fixture(calls))
+        film = next(iter(payload['tmdb']['films'].values()))
+        self.assertEqual(film['id'], 438631)
+        self.assertEqual(film['title'], 'Dune')
+        self.assertEqual(film['year'], 2021)
+        self.assertEqual(film['rating'], 7.8)
+        self.assertEqual(film['votes'], 15891)
+        self.assertIn('Paul Atreides', film['overviewIt'])
+        self.assertIn('Paul Atreides', film['overviewEn'])
+        self.assertEqual(payload['screenings'][0]['tmdbKey'],
+                         next(iter(payload['tmdb']['films'])))
+
+    def test_empty_italian_plot_keeps_the_english_one(self):
+        calls = []
+        payload = tmdb.enrich(self.payload(), token='test-token', cache={},
+                              cache_path=None, overrides={},
+                              transport=self.fixture(calls, detail_it=TMDB_DETAIL_IT_EMPTY))
+        film = next(iter(payload['tmdb']['films'].values()))
+        self.assertEqual(film['overviewIt'], '')
+        self.assertIn('Paul Atreides', film['overviewEn'])
+
+    def test_override_id_skips_search(self):
+        calls = []
+        payload = tmdb.enrich(self.payload(), token='test-token', cache={},
+                              cache_path=None, overrides={'dune': 841},
+                              transport=self.fixture(calls))
+        film = next(iter(payload['tmdb']['films'].values()))
+        self.assertEqual(film['id'], 841)
+        self.assertFalse(any('/search/movie' in url for url in calls))
+        self.assertTrue(any('/movie/841' in url for url in calls))
+
+    def test_null_override_blocks_the_match_without_a_request(self):
+        calls = []
+        payload = tmdb.enrich(self.payload(), token='test-token', cache={},
+                              cache_path=None, overrides={'dune': None},
+                              transport=self.fixture(calls))
+        self.assertEqual(payload['tmdb']['films'], {})
+        self.assertTrue(payload['tmdb']['misses'])
+        self.assertEqual(calls, [])
+        self.assertNotIn('tmdbKey', payload['screenings'][0])
+
+    def test_missing_key_returns_the_payload_unchanged(self):
+        calls = []
+        payload = self.payload()
+        result = tmdb.enrich(copy.deepcopy(payload), token=None,
+                             key_path=tmdb.ROOT / 'missing-tmdb-key.txt',
+                             cache={}, cache_path=None, overrides={},
+                             transport=self.fixture(calls))
+        self.assertEqual(result, payload)
+        self.assertNotIn('tmdb', result)
+        self.assertEqual(calls, [])
+
+    def test_tmdb_failure_does_not_break_the_screenings(self):
+        def broken(url, headers):
+            raise tmdb.TmdbError('offline')
+        payload = tmdb.enrich(self.payload(), token='test-token', cache={},
+                              cache_path=None, overrides={}, transport=broken)
+        self.assertEqual(payload['screenings'][0]['title'], 'DUNE - Lingua originale')
+        self.assertEqual(payload['tmdb']['films'], {})
+        self.assertIn('TMDB error', next(iter(payload['tmdb']['misses'].values())))
+
+    def test_429_waits_and_retries_once(self):
+        calls = []
+
+        def send(url, headers):
+            calls.append(url)
+            if len(calls) == 1:
+                raise tmdb.RateLimited(0)
+            return json.loads(TMDB_SEARCH)
+
+        client = tmdb.TmdbClient('test-token', transport=send,
+                                 sleep=lambda seconds: None)
+        results = client.search('Dune', 2021)
+        self.assertEqual(len(calls), 2)
+        self.assertEqual(results[0]['id'], 438631)
+
+    def test_second_enrich_uses_the_memory_cache(self):
+        cache = {}
+        calls = []
+        payload = self.payload()
+        tmdb.enrich(copy.deepcopy(payload), token='test-token', cache=cache,
+                    cache_path=None, overrides={}, transport=self.fixture(calls))
+        first_calls = len(calls)
+        self.assertGreater(first_calls, 0)
+
+        def no_network(url, headers):
+            raise AssertionError('network used on a cached film')
+
+        second = tmdb.enrich(copy.deepcopy(payload), token='test-token', cache=cache,
+                             cache_path=None, overrides={}, transport=no_network)
+        self.assertEqual(len(calls), first_calls)
+        self.assertTrue(second['tmdb']['films'])
+        self.assertIn('tmdbKey', second['screenings'][0])
+
+
+class TmdbGatherTests(unittest.TestCase):
+    def test_gather_without_a_key_keeps_the_old_payload(self):
+        original_path = cinema.TMDB_KEY_PATH
+        original_loaders = cinema.LOADERS
+        original_cache, original_at = cinema.CACHE, cinema.CACHE_AT
+        try:
+            cinema.TMDB_KEY_PATH = tmdb.ROOT / 'missing-tmdb-key.txt'
+
+            def working_loader(source, offset, known):
+                return [cinema.screening(source, 'Film', '2026-11-04', '18:00')]
+
+            cinema.LOADERS = {'space': working_loader}
+            data = cinema.gather(refresh=True)
+        finally:
+            cinema.TMDB_KEY_PATH = original_path
+            cinema.LOADERS = original_loaders
+            cinema.CACHE, cinema.CACHE_AT = original_cache, original_at
+        self.assertEqual(len(data['screenings']), 1)
+        self.assertNotIn('tmdb', data)
 
 
 if __name__ == '__main__':

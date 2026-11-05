@@ -1,3 +1,6 @@
 __pycache__/
 *.pyc
 .cache/
+tmdb-key.txt
+tmdb-cache.json
+tmdb-cache.json.tmp
