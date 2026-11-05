@@ -4,13 +4,14 @@
 
 **Acceptance for this handover:** every command, link and "Expected" line from the supplied plan is present; all six revised steps are unchecked; no plan step has been run; `git log` contains a commit named "Handover snapshot" (or the missing git identity is reported).
 
-**State:** Step 1 of 6 complete on 2026-11-04: backend correctness and tests, 32 offline tests passing. Steps 2–6 not started; no server started, no live source audit, no installs. Tracking applies to the six revised steps; the earlier five-step table is kept as history and is not tracked.
+**State:** Steps 1–2 of 6 complete. Step 1 (2026-11-04): backend correctness and tests, 32 offline tests passing. Step 2 (2026-11-05): live run and source audit; server stopped afterwards; no installs or deletes. Steps 3–6 not started. Tracking applies to the six revised steps; the earlier five-step table is kept as history and is not tracked.
 
 **Rule:** Whenever a plan step finishes, tick its single checkbox and replace that step's Evidence line with the command and observed result. Unverified work does not get evidence.
 
 ## Done
 
 - Step 1 of 6: backend correctness and tests. See its Evidence line below.
+- Step 2 of 6: live run and source audit. See its Evidence line below.
 
 ## PLAN (copied in full)
 
@@ -94,8 +95,8 @@ Expected: every test passes; the timestamp shows `+01:00` in November.
 
 ### 2. Live run and source audit
 
-- [ ] **Step 2 of 6 — Live run and source audit**
-  **Evidence:** _Not started; no command from this step has been run._
+- [x] **Step 2 of 6 — Live run and source audit**
+  **Evidence:** 2026-11-05, proof script run verbatim. `/health` → `{"status":"ok","version":"0.1-draft"}` (HTTP 200); `arca`, `universo`, `uci` = `ok` with `7/7 giorni letti`; `massimo`, `santandrea`, `space` = `manual`; classifications `italian` 136, `unknown` 356, `original` 2, `dubbed` 0; evil `Host` → `403`; `?refresh=1` → `updatedAt` `2026-11-05T14:29:54.017460+01:00`. Live cross-checks: Arca 11 Nov Wild Horse Nine 18:15/20:50 carries `VERSIONE ORIGINALE SOTTOTITOLATA IN ITALIANO`; UCI 5 Nov Wild Horse Nine 18:40 is `EN` and stays `unknown`; Cityplex has 0 occurrences of all six language terms; The Space cinemas API returns 200 but has no adapter, so `manual` is accurate. Cityplex now lists Sant'Andrea open 6–8 Nov, so the earlier 31 Oct/1 Nov note is stale. Server stopped at the end (no listener on 8765, no `cinema.py` process).
 
 **Files:** none (read-only; record evidence for the final report).
 
@@ -321,7 +322,7 @@ The revised plan is six steps, within the limit. Step 4 is the critique-driven a
 
 ## Next
 
-1. Step 1 is complete and evidenced. Do not start step 2 without a new instruction.
+1. Steps 1–2 are complete and evidenced. Do not start step 3 without a new instruction.
 
 ## Open questions
 
