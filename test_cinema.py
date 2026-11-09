@@ -8,9 +8,49 @@ import json
 import re
 import unittest
 from datetime import date, datetime, timezone
+from pathlib import Path
 
 import cinema
 import tmdb
+
+
+UI_JS_PATH = Path(__file__).resolve().parent / 'web' / 'app.js'
+
+
+def ui_dictionaries(source):
+    """Return {'it': {key: raw_value}, 'en': {...}} parsed from web/app.js text.
+
+    Each dictionary is a `  it: {` or `  en: {` block that closes on a line
+    holding only `  }`, with one `'key': 'value',` entry per line.
+    """
+    dictionaries = {}
+    for lang, body in re.findall(r'^  (it|en): \{\n(.*?)^  \}', source, re.M | re.S):
+        dictionaries[lang] = dict(
+            re.findall(r"^[ \t]*'([^']+)'[ \t]*:[ \t]*(.*?)[ \t]*,?[ \t]*$", body, re.M)
+        )
+    return dictionaries
+
+
+class UiDictionaryParityTest(unittest.TestCase):
+    def test_it_and_en_have_same_keys(self):
+        dictionaries = ui_dictionaries(UI_JS_PATH.read_text(encoding='utf-8'))
+        it_entries = dictionaries.get('it', {})
+        en_entries = dictionaries.get('en', {})
+        self.assertTrue(it_entries, 'no it entries found in web/app.js')
+        self.assertTrue(en_entries, 'no en entries found in web/app.js')
+        missing_in_en = sorted(set(it_entries) - set(en_entries))
+        missing_in_it = sorted(set(en_entries) - set(it_entries))
+        self.assertFalse(
+            missing_in_en or missing_in_it,
+            f'keys missing in en: {missing_in_en}; keys missing in it: {missing_in_it}',
+        )
+        empty = sorted(
+            f'{lang}:{key}'
+            for lang, entries in dictionaries.items()
+            for key, raw in entries.items()
+            if raw == "''"
+        )
+        self.assertEqual(empty, [], 'empty translation values in web/app.js')
 
 
 KNOWN = {
@@ -412,6 +452,19 @@ class UciParserTests(unittest.TestCase):
             self.by_title['Dio ride']['bookingUrl'],
             'https://ucicinemas.it/movies/dio-ride/acquista/5664/2968/45550',
         )
+
+    def test_ov_slug_version_is_original_and_italian_slug_is_not(self):
+        def version(slug, lang, subs):
+            return {"slug": slug, "language": {"name": lang, "slug": lang},
+                    "subtitles": {"name": subs} if subs else None,
+                    "performances": [{"day": "2026-11-04", "actual_start_at": "20:00"}]}
+        payload = {"data": [
+            {"title": "Ov Film", "screens": [{"2D": [version("ov-ov-film", "EN", "ITA")]}]},
+            {"title": "Plain Film", "screens": [{"2D": [version("plain-film", "ITA", None)]}]},
+        ]}
+        rows = {r['title']: r for r in cinema.parse_uci(payload, UCI_SOURCE, {})}
+        self.assertEqual(rows['Ov Film']['classification'], 'original')
+        self.assertEqual(rows['Plain Film']['classification'], 'unknown')
 
     def test_malformed_payload_does_not_raise(self):
         self.assertEqual(cinema.parse_uci({}, UCI_SOURCE, KNOWN), [])

@@ -409,14 +409,14 @@ The revised plan is six steps, within the limit. Step 4 is the critique-driven a
 ## Open issues
 
 - Massimo and Sant’Andrea stay `manual`: the Cityplex site has no per-screening language marker, so no parser can confirm their language. Users must check the venue.
-- UCI non-Italian audio stays `unknown` without verified metadata, so a real original-language screening can appear under “Da verificare”. The conservative rule is intentional.
+- Fixed 2026-11-09: UCI versions whose `slug` starts with `ov-` (EN audio, ITA subtitles; the movie endpoint marks them "O.V.") now get the label "versione originale" and are classified `original`. Live: 5 UCI rows moved from `unknown` to `original` (George Michael: The Faith Tour x3, Wild Horse Nine, Scrooge); no UCI row with non-Italian audio is left `unknown`. Test `test_ov_slug_version_is_original_and_italian_slug_is_not`; 79 tests OK. Cityplex re-checked the same day (site, Ciaotickets, Comingsoon, Mymovies): still no per-screening language marker, so Massimo and Sant'Andrea stay `manual`.
 - Coverage is not complete. Asterope in Francavilla al Mare and other nearby venues are not sources; the app covers the six named cinemas only.
 - Driving times are fixed estimates from central Pescara, with no live traffic or 30-minute isochrone. Universo is exactly at the 30-minute boundary.
 - Italian-original recognition depends on four hand-verified overrides in `language-overrides.json`; new Italian originals stay `unknown` until added, and ambiguous titles are rejected.
-- `cinema.py`’s module docstring still calls the app a draft “not yet tested end to end”. It is stale after steps 1–7 and was left unchanged because step 7 did not need it.
+- Fixed 2026-11-09: `cinema.py` module docstring rewritten to describe the current app.
 - Browser, layout and API-failure checks were run ad hoc through Chrome CDP; no committed end-to-end browser test exists.
-- If port 8765 is busy, `Avvia Cinema.cmd` ends with a raw Python traceback and `pause`. The README documents `--port`; the launcher message is not friendly.
-- The English UI is a hand-written dictionary. New UI strings must be added to both the `it` and `en` entries in `web/app.js`; parity was checked ad hoc in step 7, but no committed test enforces it.
+- Fixed 2026-11-09: a busy port now prints a clear Italian message and exits 1 without a traceback; on Windows `CinemaServer` disables SO_REUSEADDR so a second copy cannot bind the same port. Verified with a server already on 8765: `exit=1`.
+- The English UI is a hand-written dictionary. New UI strings must be added to both the `it` and `en` entries in `web/app.js`; since 2026-11-09 `UiDictionaryParityTest` in `test_cinema.py` enforces equal key sets and no empty values (78 tests, OK).
 - A failed source’s raw diagnostic is passed through in both languages; only the surrounding template is translated. The live step 7 run had no failed source, so no raw Italian diagnostic was visible in EN.
 - TMDB is optional. Without `tmdb-key.txt` there are no ratings or plots, by design; the footer credit stays visible.
 - TMDB matching is deliberately conservative. Eight miss keys stayed unmatched in the fix run; `tmdb-overrides.json` is the manual fix. A yearless row of a film can stay without TMDB even when a year-qualified row of the same title matched.

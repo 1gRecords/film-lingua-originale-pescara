@@ -1,5 +1,9 @@
-"""Draft live cinema finder. Standard library only; not yet tested end to end.
-Run: python cinema.py --no-browser
+"""Cinema VO Pescara: local web server listing original-language screenings.
+
+Reads six cinemas near Pescara (four automatically, two to be checked by hand),
+serves a web UI in Italian or English from web/, and optionally adds TMDB
+ratings and plots when tmdb-key.txt exists. Offline tests: test_cinema.py.
+Run: python cinema.py [--port 8765] [--no-browser]
 """
 from __future__ import annotations
 import argparse
@@ -11,7 +15,9 @@ import html
 import http.cookiejar
 import json
 from pathlib import Path
+import os
 import re
+import sys
 import threading
 import time
 import unicodedata
@@ -352,6 +358,8 @@ def parse_uci(payload, source, known):
                     else:
                         subtitle = ''
                     label = ' '.join(part for part in (audio, subtitle) if part)
+                    if str(version.get('slug') or '').startswith('ov-'):
+                        label = (label + ' versione originale').strip()
                     for show in version.get('performances') or []:
                         if not isinstance(show, dict):
                             continue
@@ -608,12 +616,24 @@ class Handler(SimpleHTTPRequestHandler):
         self.wfile.write(body)
 
 
+class CinemaServer(ThreadingHTTPServer):
+    # On Windows SO_REUSEADDR lets a second copy bind a busy port silently.
+    allow_reuse_address = os.name != 'nt'
+
+
 def main():
     parser=argparse.ArgumentParser(description='Cinema VO Pescara')
     parser.add_argument('--port',type=int,default=8765)
     parser.add_argument('--no-browser',action='store_true')
     args=parser.parse_args()
-    server=ThreadingHTTPServer(('127.0.0.1',args.port),Handler)
+    try:
+        server=CinemaServer(('127.0.0.1',args.port),Handler)
+    except OSError as exc:
+        print(f'Impossibile avviare Cinema: la porta {args.port} è già in uso ({exc.strerror or exc}).'+chr(10)+
+              f'Probabilmente Cinema è già aperto su http://127.0.0.1:{args.port}.'+chr(10)+
+              f"Chiudi l'altra copia oppure usa un'altra porta: python cinema.py --port {args.port+1}",
+              file=sys.stderr,flush=True)
+        sys.exit(1)
     url=f'http://127.0.0.1:{args.port}'
     print('Cinema VO: '+url,flush=True)
     if not args.no_browser:
