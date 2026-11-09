@@ -36,6 +36,8 @@ jobs:
       - name: Scarica la programmazione
         env:
           TMDB_TOKEN: ${{ secrets.TMDB_TOKEN }}
+          SPACE_PROXY_URL: ${{ secrets.SPACE_PROXY_URL }}
+          SPACE_PROXY_KEY: ${{ secrets.SPACE_PROXY_KEY }}
         run: python cinema.py --build _site
       - uses: actions/upload-pages-artifact@v3
         with:

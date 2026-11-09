@@ -1142,6 +1142,21 @@ class DeployTests(unittest.TestCase):
             self.assertEqual(json.loads((out / 'api' / 'screenings.json').read_text(encoding='utf-8')), data)
             self.assertFalse(any('tmdb' in p.name for p in out.rglob('*')))
 
+    def test_space_uses_proxy_when_configured(self):
+        import io, os
+        from unittest import mock
+        seen = {}
+
+        def fake_urlopen(request, timeout):
+            seen['url'] = request.full_url
+            seen['key'] = request.get_header('X-key')
+            return io.BytesIO(b'{"result": []}')
+
+        env = {'SPACE_PROXY_URL': 'https://proxy.example/', 'SPACE_PROXY_KEY': 'k123'}
+        with mock.patch.dict(os.environ, env), mock.patch('urllib.request.urlopen', fake_urlopen):
+            self.assertEqual(cinema.SpaceClient().films('2026-11-10'), {'result': []})
+        self.assertEqual(seen, {'url': 'https://proxy.example/films?day=2026-11-10', 'key': 'k123'})
+
     def test_build_static_refuses_empty_list(self):
         import tempfile
         from unittest import mock

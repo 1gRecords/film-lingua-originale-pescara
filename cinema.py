@@ -121,6 +121,9 @@ class SpaceClient:
         self.prime_error = None
 
     def films(self, day):
+        proxy = os.environ.get('SPACE_PROXY_URL', '').strip().rstrip('/')
+        if proxy:
+            return self._films_via_proxy(proxy, day)
         url = (f'{SPACE_API}?showingDate={day}T00:00:00&minEmbargoLevel=3'
                '&includesSession=true&includeSessionAttributes=true')
         with self.lock:
@@ -138,6 +141,18 @@ class SpaceClient:
             if len(payload) > 3_000_000:
                 raise ValueError('The Space: response too large')
             return json.loads(payload)
+
+
+    def _films_via_proxy(self, proxy, day):
+        # GitHub runners get 403 from The Space; cloudflare/space-proxy.js fetches it instead.
+        request = urllib.request.Request(
+            f'{proxy}/films?day={day}',
+            headers={'User-Agent': SPACE_UA, 'x-key': os.environ.get('SPACE_PROXY_KEY', '')})
+        with urllib.request.urlopen(request, timeout=30) as response:
+            payload = response.read(3_000_001)
+        if len(payload) > 3_000_000:
+            raise ValueError('The Space: response too large')
+        return json.loads(payload)
 
 
 SPACE_CLIENT = SpaceClient()

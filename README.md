@@ -34,6 +34,8 @@ Configurazione, una volta sola:
 
 Il token resta nei secret di GitHub: non entra nel repository né nel sito pubblicato. In locale si continua a usare `tmdb-key.txt`; la variabile `TMDB_TOKEN`, se presente, ha la precedenza.
 
+The Space blocca gli indirizzi dei server di GitHub (HTTP 403). Online lo legge un Cloudflare Worker gratuito, il codice è in `cloudflare/space-proxy.js`: su Cloudflare il Worker ha il secret `PROXY_KEY`, mentre su GitHub servono i secret `SPACE_PROXY_URL` (l’indirizzo del Worker) e `SPACE_PROXY_KEY` (la stessa chiave). In locale, senza queste variabili, The Space si legge direttamente come prima.
+
 GitHub sospende i workflow a orario dopo 60 giorni senza attività nel repository: in quel caso basta riattivarlo dalla scheda Actions o fare un commit.
 
 ## Valutazioni e trama (TMDB)
