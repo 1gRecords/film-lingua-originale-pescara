@@ -1,0 +1,52 @@
+# Rebuilds the screenings list every hour and publishes it on GitHub Pages.
+name: Pubblica sito
+
+on:
+  schedule:
+    - cron: '7 * * * *'
+  workflow_dispatch:
+  push:
+    branches: [master, main]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Test
+        run: python -m unittest test_cinema
+      - name: Cache TMDB
+        uses: actions/cache@v4
+        with:
+          path: tmdb-cache.json
+          key: tmdb-cache-${{ github.run_id }}
+          restore-keys: tmdb-cache-
+      - name: Scarica la programmazione
+        env:
+          TMDB_TOKEN: ${{ secrets.TMDB_TOKEN }}
+        run: python cinema.py --build _site
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

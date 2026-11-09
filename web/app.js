@@ -570,6 +570,9 @@ function setLang(lang) {
   refreshLiveLabels();
 }
 
+// Set by `cinema.py --build`: the online copy reads a JSON rebuilt every hour.
+const STATIC_SITE = document.documentElement.dataset.static === '1';
+
 async function load(refresh = false) {
   if (state.loading) return;
   state.loading = true;
@@ -584,7 +587,8 @@ async function load(refresh = false) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 60000);
   try {
-    const response = await fetch(`/api/screenings${refresh ? '?refresh=1' : ''}`, { signal: controller.signal, cache: 'no-store' });
+    const url = STATIC_SITE ? 'api/screenings.json' : `/api/screenings${refresh ? '?refresh=1' : ''}`;
+    const response = await fetch(url, { signal: controller.signal, cache: 'no-store' });
     if (!response.ok) throw new Error(t('error.http', { status: response.status }));
     const data = await response.json();
     if (!Array.isArray(data.screenings) || !Array.isArray(data.sources)) throw new Error(t('error.invalid'));

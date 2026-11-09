@@ -53,4 +53,4 @@ See`language-overrides.json`: four current2026 films have explicit original-lang
 Wikipedia/Wikidata APIs returned403 in local urllib, so automated reusable enrichment not established. Curated metadata is explicit-source verified but requires maintenance for future titles.
 
 ## Saved raw research outside app folder
-`C:\Users\aleua.DESKTOP-LAN9DQK\cinema-arca.html`, `cinema-arca-film.html`, `cinema-cityplex.html`, `cinema-uci-theatres.json`, `cinema-uci-program.json` contain verified working response samples.
+`%USERPROFILE%\cinema-arca.html`, `cinema-arca-film.html`, `cinema-cityplex.html`, `cinema-uci-theatres.json`, `cinema-uci-program.json` contain verified working response samples.

@@ -1,6 +1,7 @@
 """TMDB ratings and plots for the cinema list. Standard library only.
 
-The API token is read from tmdb-key.txt and sent only to api.themoviedb.org.
+The API token is read from the TMDB_TOKEN environment variable (online build)
+or from tmdb-key.txt (local use), and sent only to api.themoviedb.org.
 Results are cached on disk so a refresh does not repeat TMDB calls.
 """
 from __future__ import annotations
@@ -8,6 +9,7 @@ from __future__ import annotations
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date
 import json
+import os
 from pathlib import Path
 import re
 import time
@@ -156,10 +158,12 @@ def select_match(cleaned, results, year=None, today=None):
 
 
 def read_token(path=KEY_PATH):
-    try:
-        value = Path(path).read_text(encoding='utf-8-sig').strip()
-    except OSError:
-        return ''
+    value = os.environ.get('TMDB_TOKEN', '').strip() if path == KEY_PATH else ''
+    if not value:
+        try:
+            value = Path(path).read_text(encoding='utf-8-sig').strip()
+        except OSError:
+            return ''
     if value.casefold().startswith('bearer '):
         value = value[7:].strip()
     if len(value) < 20 or any(char.isspace() for char in value):

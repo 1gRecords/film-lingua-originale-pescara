@@ -22,6 +22,20 @@ python cinema.py --port 8766
 
 `python cinema.py --no-browser` avvia il server senza aprire il browser.
 
+## Versione online (GitHub Pages)
+
+Il workflow `.github/workflows/pages.yml` gira ogni ora (al minuto 7), a ogni push e a mano da “Actions → Pubblica sito → Run workflow”. Esegue i test, legge i cinema con `python cinema.py --build _site` e pubblica su GitHub Pages una copia statica: la pagina legge `api/screenings.json` invece del server, quindi gli orari online possono avere fino a circa un’ora. Se non legge nessuna proiezione, il workflow fallisce e resta online la versione precedente.
+
+Configurazione, una volta sola:
+
+1. Repository pubblico su GitHub (Pages gratuito lo richiede).
+2. Settings → Secrets and variables → Actions → New repository secret: nome `TMDB_TOKEN`, valore il token TMDB. Senza secret il sito funziona, ma senza valutazioni e trame.
+3. Settings → Pages → Source: “GitHub Actions”.
+
+Il token resta nei secret di GitHub: non entra nel repository né nel sito pubblicato. In locale si continua a usare `tmdb-key.txt`; la variabile `TMDB_TOKEN`, se presente, ha la precedenza.
+
+GitHub sospende i workflow a orario dopo 60 giorni senza attività nel repository: in quel caso basta riattivarlo dalla scheda Actions o fare un commit.
+
 ## Valutazioni e trama (TMDB)
 
 La valutazione TMDB e la trama breve sono facoltative. Per attivarle, salva in `tmdb-key.txt` nella cartella del progetto un “API Read Access Token” di TMDB, su una sola riga. Il file è in `.gitignore`: non viene versionato, stampato nei log o inviato ad altri siti. Il token viene usato solo verso `api.themoviedb.org`.

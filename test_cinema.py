@@ -1122,5 +1122,35 @@ class TmdbGatherTests(unittest.TestCase):
         self.assertNotIn('tmdb', data)
 
 
+class DeployTests(unittest.TestCase):
+    def test_token_from_env_wins_only_for_default_path(self):
+        import os, tempfile
+        from unittest import mock
+        with mock.patch.dict(os.environ, {'TMDB_TOKEN': 'x' * 30}):
+            self.assertEqual(tmdb.read_token(), 'x' * 30)
+            with tempfile.TemporaryDirectory() as tmp:
+                self.assertEqual(tmdb.read_token(Path(tmp) / 'missing.txt'), '')
+
+    def test_build_static_writes_site_without_key(self):
+        import tempfile
+        from unittest import mock
+        data = {'updatedAt': 'x', 'screenings': [{'id': 'a'}], 'sources': [], 'notes': [], 'noteCodes': []}
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.object(cinema, 'gather', return_value=data):
+            out = Path(tmp) / 'site'
+            cinema.build_static(out)
+            self.assertIn('data-static="1"', (out / 'index.html').read_text(encoding='utf-8'))
+            self.assertEqual(json.loads((out / 'api' / 'screenings.json').read_text(encoding='utf-8')), data)
+            self.assertFalse(any('tmdb' in p.name for p in out.rglob('*')))
+
+    def test_build_static_refuses_empty_list(self):
+        import tempfile
+        from unittest import mock
+        data = {'screenings': [], 'sources': []}
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.object(cinema, 'gather', return_value=data):
+            with self.assertRaises(SystemExit):
+                cinema.build_static(Path(tmp) / 'site')
+            self.assertFalse((Path(tmp) / 'site').exists())
+
+
 if __name__ == '__main__':
     unittest.main()

@@ -4,3 +4,4 @@ __pycache__/
 tmdb-key.txt
 tmdb-cache.json
 tmdb-cache.json.tmp
+_site/

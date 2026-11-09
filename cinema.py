@@ -4,6 +4,7 @@ Reads six cinemas near Pescara (four automatically, two to be checked by hand),
 serves a web UI in Italian or English from web/, and optionally adds TMDB
 ratings and plots when tmdb-key.txt exists. Offline tests: test_cinema.py.
 Run: python cinema.py [--port 8765] [--no-browser]
+Static site (GitHub Pages): python cinema.py --build _site
 """
 from __future__ import annotations
 import argparse
@@ -17,6 +18,7 @@ import json
 from pathlib import Path
 import os
 import re
+import shutil
 import sys
 import threading
 import time
@@ -630,6 +632,28 @@ class Handler(SimpleHTTPRequestHandler):
         self.wfile.write(body)
 
 
+def build_static(out_dir):
+    """Write web/ plus api/screenings.json to out_dir; fail if nothing was read."""
+    data=gather(True)
+    for source in data['sources']:
+        print(f"{source.get('id')}: {source.get('status')} - {source.get('message','')}",flush=True)
+    print(f"Proiezioni: {len(data['screenings'])}",flush=True)
+    if not data['screenings']:
+        raise SystemExit('Nessuna proiezione letta: il sito pubblicato resta quello precedente.')
+    out=Path(out_dir)
+    if out.exists():
+        shutil.rmtree(out)
+    shutil.copytree(ROOT/'web',out)
+    index=out/'index.html'
+    page=index.read_text(encoding='utf-8')
+    if '<html lang="it">' not in page:
+        raise SystemExit('web/index.html: tag <html lang="it"> non trovato.')
+    index.write_text(page.replace('<html lang="it">','<html lang="it" data-static="1">',1),encoding='utf-8')
+    (out/'api').mkdir()
+    (out/'api'/'screenings.json').write_text(json.dumps(data,ensure_ascii=False),encoding='utf-8')
+    (out/'.nojekyll').write_text('',encoding='utf-8')
+
+
 class CinemaServer(ThreadingHTTPServer):
     # On Windows SO_REUSEADDR lets a second copy bind a busy port silently.
     allow_reuse_address = os.name != 'nt'
@@ -639,7 +663,10 @@ def main():
     parser=argparse.ArgumentParser(description='Cinema VO Pescara')
     parser.add_argument('--port',type=int,default=8765)
     parser.add_argument('--no-browser',action='store_true')
+    parser.add_argument('--build',metavar='DIR',help='genera il sito statico in DIR ed esce')
     args=parser.parse_args()
+    if args.build:
+        return build_static(args.build)
     try:
         server=CinemaServer(('127.0.0.1',args.port),Handler)
     except OSError as exc:
