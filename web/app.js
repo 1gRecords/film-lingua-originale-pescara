@@ -11,7 +11,7 @@ const MESSAGES = {
     'language.group': 'Lingua del sito',
     'intro.edition': 'Le voci sono quelle del film.',
     'app.title': 'Voci originali',
-    'intro.description': 'Trova le proiezioni in lingua originale vicino a Pescara, compresi i film italiani. I film doppiati sono esclusi.',
+    'intro.description': 'Trova le proiezioni in lingua originale vicino a Pescara. I film doppiati sono esclusi; gli originali italiani si aggiungono con l’apposita casella.',
     'refresh.button': 'Aggiorna gli orari',
     'updated.connecting': 'Collegamento alle programmazioni…',
     'updated.checking': 'Controllo le programmazioni…',
@@ -117,7 +117,7 @@ const MESSAGES = {
     'language.group': 'Site language',
     'intro.edition': 'The voices are the film’s own.',
     'app.title': 'Original voices',
-    'intro.description': 'Find original-language screenings near Pescara, including Italian films. Dubbed screenings are excluded.',
+    'intro.description': 'Find original-language screenings near Pescara. Dubbed screenings are excluded; tick the box to add Italian originals.',
     'refresh.button': 'Refresh showtimes',
     'updated.connecting': 'Connecting to showtimes…',
     'updated.checking': 'Checking showtimes…',
@@ -538,7 +538,7 @@ function render() {
   $('unknown-tab').setAttribute('aria-selected', String(state.mode === 'unknown'));
   $('mode-note').textContent = state.mode === 'confirmed' ? t('mode.confirmed') : t('mode.unknown');
   if (!rows.length) {
-    const filtersActive = $('search').value.trim() || $('date').value || $('cinema').value || !$('include-italian').checked;
+    const filtersActive = $('search').value.trim() || $('date').value || $('cinema').value || (!$('include-italian').checked && availableRows().some(item => item.classification === 'italian'));
     const unavailable = state.data.sources.some(source => source.status !== 'ok');
     const title = state.mode === 'unknown' ? t('empty.unknown.title') : t('empty.confirmed.title');
     const message = filtersActive ? t('empty.filters') : state.mode === 'unknown' ? t('empty.unknown.body') : unavailable ? t('empty.unavailable.body') : t('empty.none.body');

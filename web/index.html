@@ -26,7 +26,7 @@
       <div>
         <p class="edition" data-i18n="intro.edition">Le voci sono quelle del film.</p>
         <h1 id="title"><span class="title-text" data-i18n="app.title">Voci originali</span><span class="title-dot">.</span></h1>
-        <p class="description" data-i18n="intro.description">Trova le proiezioni in lingua originale vicino a Pescara, compresi i film italiani. I film doppiati sono esclusi.</p>
+        <p class="description" data-i18n="intro.description">Trova le proiezioni in lingua originale vicino a Pescara. I film doppiati sono esclusi; gli originali italiani si aggiungono con l’apposita casella.</p>
       </div>
       <div class="update-block">
         <button id="refresh" class="primary" type="button"><span class="icon" aria-hidden="true">↻</span><span class="button-label" data-i18n="refresh.button">Aggiorna gli orari</span></button>
@@ -37,7 +37,7 @@
       <div class="search-field"><label for="search" data-i18n="search.label">Cerca un film</label><input type="search" id="search" placeholder="Titolo del film…" data-i18n-placeholder="search.placeholder" autocomplete="off"></div>
       <div><label for="date" data-i18n="date.label">Quando</label><select id="date"><option value="" data-i18n="date.all">Tutte le date</option></select></div>
       <div><label for="cinema" data-i18n="cinema.label">Dove</label><select id="cinema"><option value="" data-i18n="cinema.all">Tutti i cinema</option></select></div>
-      <label class="check"><input type="checkbox" id="include-italian" checked><span data-i18n="italian.toggle">Includi gli originali italiani</span></label>
+      <label class="check"><input type="checkbox" id="include-italian" autocomplete="off"><span data-i18n="italian.toggle">Includi gli originali italiani</span></label>
     </section>
     <div class="results-top">
       <div class="tabs" role="tablist" aria-label="Affidabilità della lingua" data-i18n-aria-label="tabs.label">
