@@ -5,3 +5,5 @@ tmdb-key.txt
 tmdb-cache.json
 tmdb-cache.json.tmp
 _site/
+.wrangler/
+node_modules/

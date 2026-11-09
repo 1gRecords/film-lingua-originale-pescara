@@ -1,0 +1,13 @@
+preview_urls = false
+name = "space-proxy"
+main = "space-proxy.js"
+compatibility_date = "2025-09-01"
+workers_dev = true
+
+[[durable_objects.bindings]]
+name = "FETCHER"
+class_name = "Fetcher"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Fetcher"]
