@@ -11,3 +11,6 @@ class_name = "Fetcher"
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["Fetcher"]
+
+[triggers]
+crons = ["0 * * * *"]
