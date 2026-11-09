@@ -883,24 +883,6 @@ select option {
   color: var(--unknown);
 }
 
-.language {
-  color: var(--muted);
-  font-size: var(--fs-small);
-}
-
-.language::before {
-  content: "/";
-  margin-right: var(--s-2);
-  color: var(--line-strong);
-}
-
-.evidence {
-  max-width: 40em;
-  margin-top: var(--s-3);
-  color: var(--muted);
-  font: italic 400 var(--fs-small) / 1.5 var(--font-serif);
-}
-
 /* TMDB block */
 .tmdb {
   max-width: 40em;

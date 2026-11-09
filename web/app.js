@@ -97,17 +97,7 @@ const MESSAGES = {
     'language.ja': 'Giapponese',
     'language.ru': 'Russo',
     'language.pt': 'Portoghese',
-    'language.zh': 'Cinese',
-    'evidence.dubbed.label': 'La fonte indica una versione doppiata{labelSuffix}',
-    'evidence.dubbed.audio': 'Film in {filmLanguage}; la proiezione è in {audioLanguage}: versione doppiata.',
-    'evidence.italian.metadata': '{sourceEvidence}{yearNote}',
-    'evidence.original.verified': 'Lingua originale verificata ({filmLanguage}) e audio della proiezione coerente.{yearNote}',
-    'evidence.original.label': 'Indicazione esplicita nella fonte: {label}',
-    'evidence.original.title': 'Il titolo indica la versione originale: {title}',
-    'evidence.unknown.audio': 'Audio indicato dalla fonte: {audioLanguage}; lingua originale non verificata.',
-    'evidence.unknown.none': 'Nessuna indicazione esplicita di versione originale',
-    'evidence.yearNote': ' (anno non disponibile)',
-    'evidence.dailyNote': ' (nota della scheda giornaliera, valida per tutti gli orari della stessa scheda).'
+    'language.zh': 'Cinese'
   },
   en: {
     'document.title': 'Original voices · Cinema in Pescara',
@@ -203,17 +193,7 @@ const MESSAGES = {
     'language.ja': 'Japanese',
     'language.ru': 'Russian',
     'language.pt': 'Portuguese',
-    'language.zh': 'Chinese',
-    'evidence.dubbed.label': 'The source marks a dubbed version.',
-    'evidence.dubbed.audio': 'Film language: {filmLanguage}; screening audio: {audioLanguage}. This is a dubbed version.',
-    'evidence.italian.metadata': 'Curated metadata confirms Italian as the original language{yearNote}.',
-    'evidence.original.verified': 'Verified original language ({filmLanguage}) and the screening audio matches.{yearNote}',
-    'evidence.original.label': 'Explicit original-version indication in the source.',
-    'evidence.original.title': 'The title says original version: {title}',
-    'evidence.unknown.audio': 'Audio listed by the source: {audioLanguage}; original language not verified.',
-    'evidence.unknown.none': 'No explicit original-version indication.',
-    'evidence.yearNote': ' (year unavailable)',
-    'evidence.dailyNote': ' (daily listing note, valid for every time in that listing).'
+    'language.zh': 'Chinese'
   }
 };
 
@@ -385,50 +365,6 @@ function languageLabel(item) {
   return state.lang === 'it' ? String(item.language || '') : '';
 }
 
-function evidenceText(item) {
-  const params = item.evidenceParams && typeof item.evidenceParams === 'object' ? item.evidenceParams : {};
-  const yearNote = params.titleOnly ? t('evidence.yearNote') : '';
-  const dailyNote = params.dailyNote ? t('evidence.dailyNote') : '';
-  let value;
-  switch (item.evidenceCode) {
-    case 'evidence.dubbed.label':
-      value = t('evidence.dubbed.label', { labelSuffix: params.label ? `: ${params.label}` : '' });
-      break;
-    case 'evidence.dubbed.audio':
-      value = t('evidence.dubbed.audio', {
-        filmLanguage: languageName(params.filmLanguage),
-        audioLanguage: languageName(params.audioLanguage)
-      });
-      break;
-    case 'evidence.italian.metadata':
-      value = t('evidence.italian.metadata', {
-        sourceEvidence: String(params.sourceEvidence || ''),
-        yearNote
-      });
-      break;
-    case 'evidence.original.verified':
-      value = t('evidence.original.verified', {
-        filmLanguage: languageName(params.language),
-        yearNote
-      });
-      break;
-    case 'evidence.original.label':
-      value = t('evidence.original.label', { label: String(params.label || '') });
-      break;
-    case 'evidence.original.title':
-      value = t('evidence.original.title', { title: String(params.title || '') });
-      break;
-    case 'evidence.unknown.audio':
-      value = t('evidence.unknown.audio', { audioLanguage: languageName(params.language) });
-      break;
-    case 'evidence.unknown.none':
-      value = t('evidence.unknown.none');
-      break;
-    default:
-      return state.lang === 'it' && typeof item.evidence === 'string' ? item.evidence : '';
-  }
-  return `${value}${dailyNote}`.trim();
-}
 
 function sourceMessage(source) {
   const params = source.messageParams && typeof source.messageParams === 'object' ? source.messageParams : {};
@@ -499,12 +435,11 @@ function rowCard(item) {
   info.append(element('h3', '', displayTitle(item.title)));
   const badges = element('div', 'badges');
   const badgeKey = item.classification === 'italian' ? 'badge.italian' : item.classification === 'unknown' ? 'badge.unknown' : 'badge.original';
-  badges.append(element('span', `badge${item.classification === 'unknown' ? ' unknown' : ''}`, t(badgeKey)));
-  const language = languageLabel(item);
-  if (language) badges.append(element('span', 'language', language));
+  // A verified language (e.g. Inglese) goes inside the badge; generic labels would only repeat it.
+  const specific = item.classification === 'original' && /^language\.[a-z]{2}$/.test(item.languageCode || '') ? languageLabel(item) : '';
+  const badgeText = specific ? `${t(badgeKey)} · ${specific.toLocaleUpperCase(locale())}` : t(badgeKey);
+  badges.append(element('span', `badge${item.classification === 'unknown' ? ' unknown' : ''}`, badgeText));
   info.append(badges);
-  const evidence = evidenceText(item);
-  if (evidence) info.append(element('p', 'evidence', evidence));
   const extra = tmdbBlock(item);
   if (extra) info.append(extra);
   const place = element('div', 'screening-place');
