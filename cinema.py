@@ -148,8 +148,12 @@ class SpaceClient:
         request = urllib.request.Request(
             f'{proxy}/films?day={day}',
             headers={'User-Agent': SPACE_UA, 'x-key': os.environ.get('SPACE_PROXY_KEY', '')})
-        with urllib.request.urlopen(request, timeout=30) as response:
-            payload = response.read(3_000_001)
+        try:
+            with urllib.request.urlopen(request, timeout=30) as response:
+                payload = response.read(3_000_001)
+        except urllib.error.HTTPError as exc:
+            detail = exc.read(80).decode('utf-8', 'replace').strip()
+            raise ValueError(f'The Space via proxy: HTTP {exc.code} {detail}') from None
         if len(payload) > 3_000_000:
             raise ValueError('The Space: response too large')
         return json.loads(payload)
