@@ -5,7 +5,7 @@ const LANG_KEY = 'cinemavo.lang';
 const MESSAGES = {
   it: {
     'document.title': 'Voci originali · Cinema a Pescara',
-    'meta.description': 'Proiezioni in lingua originale a Pescara e dintorni. Orari, fonti e indicazioni, senza film doppiati.',
+    'meta.description': 'Proiezioni in lingua originale a Pescara e dintorni. Orari, fonti e posizione dei cinema, senza film doppiati.',
     'nav.skip': 'Vai ai risultati',
     'masthead.radius': 'Entro circa 30 min in auto',
     'language.group': 'Lingua del sito',
@@ -55,19 +55,18 @@ const MESSAGES = {
     'badge.original': 'VERSIONE ORIGINALE',
     'badge.italian': 'ORIGINALE ITALIANO',
     'badge.unknown': 'LINGUA DA VERIFICARE',
-    'place.meta': '{city} · circa {minutes} min in auto',
+    'place.meta': '{city}',
     'place.defaultCinema': 'Cinema',
     'place.defaultCity': 'Pescara',
     'actions.tickets': 'Orari e biglietti ↗',
     'actions.source': 'Fonte',
-    'actions.directions': 'Indicazioni ↗',
+    'actions.location': 'Posizione ↗',
     'sources.updating': 'In aggiornamento',
     'sources.unverified': 'Fonti non ancora verificate',
     'sources.summary': '{ok} di {total} fonti disponibili',
     'source.status.ok': 'Consultata',
     'source.status.manual': 'Verifica sul sito',
     'source.status.error': 'Non disponibile',
-    'source.drive': 'Circa {minutes} minuti in auto dal centro',
     'source.open': 'Apri la programmazione ↗',
     'source.manual.cityplex': 'Il sito Cityplex elenca titoli, date e orari ma non la lingua per proiezione. Verificare la versione sul sito o in biglietteria.',
     'source.manual.generic': 'Il sito elenca titoli, date e orari ma non la lingua per proiezione. Verificare la versione sul sito o in biglietteria.',
@@ -80,7 +79,7 @@ const MESSAGES = {
     'notes.drive': 'Tempi di guida stimati dal centro di Pescara; non sono misure del traffico attuale.',
     'notes.sevenDays': 'Sette giorni di programmazione; la nazionalità italiana non dimostra la lingua originale.',
     'footer.about': 'Pescara e dintorni · Nessun account, nessuna installazione di pacchetti.',
-    'footer.times': 'I tempi in auto sono stime dal centro di Pescara, senza traffico in tempo reale. Controlla lingua e orario sul sito del cinema prima di partire.',
+    'footer.times': 'Controlla lingua e orario sul sito del cinema prima di partire.',
     'footer.tmdb': 'Questo prodotto usa l’API di TMDB ma non è approvato o certificato da TMDB.',
     'tmdb.rating': 'TMDB {rating}/10 · {votes} voti',
     'tmdb.plotFallback': 'Trama non disponibile in italiano: mostro quella inglese.',
@@ -104,6 +103,7 @@ const MESSAGES = {
     'evidence.italian.metadata': '{sourceEvidence}{yearNote}',
     'evidence.original.verified': 'Lingua originale verificata ({filmLanguage}) e audio della proiezione coerente.{yearNote}',
     'evidence.original.label': 'Indicazione esplicita nella fonte: {label}',
+    'evidence.original.title': 'Il titolo indica la versione originale: {title}',
     'evidence.unknown.audio': 'Audio indicato dalla fonte: {audioLanguage}; lingua originale non verificata.',
     'evidence.unknown.none': 'Nessuna indicazione esplicita di versione originale',
     'evidence.yearNote': ' (anno non disponibile)',
@@ -111,7 +111,7 @@ const MESSAGES = {
   },
   en: {
     'document.title': 'Original voices · Cinema in Pescara',
-    'meta.description': 'Original-language screenings in and around Pescara. Showtimes, sources and indications, without dubbed films.',
+    'meta.description': 'Original-language screenings in and around Pescara. Showtimes, sources and cinema locations, without dubbed films.',
     'nav.skip': 'Skip to results',
     'masthead.radius': 'Within about 30 min by car',
     'language.group': 'Site language',
@@ -161,19 +161,18 @@ const MESSAGES = {
     'badge.original': 'ORIGINAL VERSION',
     'badge.italian': 'ITALIAN ORIGINAL',
     'badge.unknown': 'LANGUAGE TO VERIFY',
-    'place.meta': '{city} · about {minutes} min by car',
+    'place.meta': '{city}',
     'place.defaultCinema': 'Cinema',
     'place.defaultCity': 'Pescara',
     'actions.tickets': 'Times and tickets ↗',
     'actions.source': 'Source',
-    'actions.directions': 'Directions ↗',
+    'actions.location': 'Location ↗',
     'sources.updating': 'Updating',
     'sources.unverified': 'Sources not checked yet',
     'sources.summary': '{ok} of {total} sources available',
     'source.status.ok': 'Checked',
     'source.status.manual': 'Check the site',
     'source.status.error': 'Unavailable',
-    'source.drive': 'About {minutes} minutes by car from the centre',
     'source.open': 'Open the schedule ↗',
     'source.manual.cityplex': 'The Cityplex site lists titles, dates and times but not the language for each screening. Check the version on the site or at the box office.',
     'source.manual.generic': 'The site lists titles, dates and times but not the language for each screening. Check the version on the site or at the box office.',
@@ -186,7 +185,7 @@ const MESSAGES = {
     'notes.drive': 'Driving times are estimates from central Pescara; they are not live traffic measurements.',
     'notes.sevenDays': 'Seven days of showtimes; Italian nationality alone does not prove the original language.',
     'footer.about': 'Pescara and surroundings · No account, no package installation.',
-    'footer.times': 'Driving times are estimates from central Pescara, without live traffic. Check language and time on the cinema site before you leave.',
+    'footer.times': 'Check language and time on the cinema site before you leave.',
     'footer.tmdb': 'This product uses the TMDB API but is not endorsed or certified by TMDB.',
     'tmdb.rating': 'TMDB {rating}/10 · {votes} votes',
     'tmdb.plotFallback': 'Plot not available in Italian; showing the English one.',
@@ -210,6 +209,7 @@ const MESSAGES = {
     'evidence.italian.metadata': 'Curated metadata confirms Italian as the original language{yearNote}.',
     'evidence.original.verified': 'Verified original language ({filmLanguage}) and the screening audio matches.{yearNote}',
     'evidence.original.label': 'Explicit original-version indication in the source.',
+    'evidence.original.title': 'The title says original version: {title}',
     'evidence.unknown.audio': 'Audio listed by the source: {audioLanguage}; original language not verified.',
     'evidence.unknown.none': 'No explicit original-version indication.',
     'evidence.yearNote': ' (year unavailable)',
@@ -415,6 +415,9 @@ function evidenceText(item) {
     case 'evidence.original.label':
       value = t('evidence.original.label', { label: String(params.label || '') });
       break;
+    case 'evidence.original.title':
+      value = t('evidence.original.title', { title: String(params.title || '') });
+      break;
     case 'evidence.unknown.audio':
       value = t('evidence.unknown.audio', { audioLanguage: languageName(params.language) });
       break;
@@ -505,15 +508,15 @@ function rowCard(item) {
   const extra = tmdbBlock(item);
   if (extra) info.append(extra);
   const place = element('div', 'screening-place');
-  place.append(element('p', 'place-name', item.cinema || t('place.defaultCinema')), element('p', 'place-meta', t('place.meta', { city: item.city || t('place.defaultCity'), minutes: item.driveMinutes })));
+  place.append(element('p', 'place-name', item.cinema || t('place.defaultCinema')), element('p', 'place-meta', t('place.meta', { city: item.city || t('place.defaultCity') })));
   const actions = element('div', 'actions');
   const booking = link(t('actions.tickets'), item.bookingUrl || item.sourceUrl, 'ticket');
   if (booking) actions.append(booking);
   const source = link(t('actions.source'), item.sourceUrl);
   if (source) actions.append(source);
   const destination = `${item.cinema || ''} ${item.city || 'Pescara'}`.trim();
-  const directions = link(t('actions.directions'), `https://www.google.com/maps/dir/?api=1&origin=Piazza+Salotto+Pescara&destination=${encodeURIComponent(destination)}&travelmode=driving`);
-  if (directions) actions.append(directions);
+  const location = link(t('actions.location'), `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(destination)}`);
+  if (location) actions.append(location);
   place.append(actions);
   article.append(time, info, place);
   return article;
@@ -568,7 +571,6 @@ function renderSources() {
     article.append(top);
     const message = sourceMessage(source);
     if (message) article.append(element('p', '', message));
-    if (driveInRange(source.driveMinutes)) article.append(element('p', '', t('source.drive', { minutes: source.driveMinutes })));
     const sourceLink = link(t('source.open'), source.url);
     if (sourceLink) article.append(sourceLink);
     fragment.append(article);

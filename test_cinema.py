@@ -600,6 +600,27 @@ class TranslationCodeTests(unittest.TestCase):
         self.assertEqual(row['language'], 'Versione originale')
         self.assertIn('versione originale', row['evidence'])
 
+    def test_original_version_in_title_counts_when_session_has_no_language(self):
+        # The Space special events: no language attribute, VO only in the title.
+        for title in ('George Michael : the Faith Tour - Lingua Originale',
+                      'Some Film (V.O.)', 'Some Film - VOS', 'Concerto in versione originale'):
+            row = self.row(title=title)
+            self.assertEqual(row['classification'], 'original', title)
+            self.assertEqual(row['evidenceCode'], 'evidence.original.title')
+            self.assertEqual(row['evidenceParams'], {'title': title})
+
+    def test_title_short_tags_inside_words_do_not_count(self):
+        for title in ('Vos amis', 'Il volo', 'Ovunque tu sia', 'Love Story'):
+            self.assertEqual(self.row(title=title)['classification'], 'unknown', title)
+
+    def test_dubbed_label_beats_original_title(self):
+        row = self.row(title='Film - Lingua Originale', label='doppiato')
+        self.assertEqual(row['classification'], 'dubbed')
+
+    def test_italian_audio_beats_original_title(self):
+        row = self.row(title='Film - Lingua Originale', audio_lang='italiano')
+        self.assertEqual(row['classification'], 'unknown')
+
     def test_verified_original_language_has_a_language_code(self):
         row = self.row(title='English Film', audio_lang='ENG', year=2026)
         self.assertEqual(row['languageCode'], 'language.en')

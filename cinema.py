@@ -70,6 +70,11 @@ DUBBED_LABEL = re.compile(r'\bdoppiat[oaie]\b|\bdubbed\b')
 ORIGINAL_LABEL = re.compile(
     r'versione originale|lingua originale|original version|'
     r'\b(?:v\.?o\.?s?\.?|o\.?v\.?|vos|vost|sott\.?\s*ita)\b')
+# Titles only accept the long phrases, or a short tag set off by a bracket or
+# dash at the end, so words like "Vos" inside a real title do not match.
+TITLE_ORIGINAL = re.compile(
+    r'versione originale|lingua originale|original version|'
+    r'(?:[\(\[]|\s[-–]\s)\s*(?:v\.?o\.?s?t?\.?|o\.?v\.?|sott\.?\s*ita)\s*[\)\]]?\s*$')
 
 
 def fetch(url):
@@ -247,6 +252,11 @@ def classify_details(label, title='', known=None, audio_lang=None, year=None):
         return details('original', 'Versione originale',
                        'Indicazione esplicita nella fonte: ' + label,
                        'language.original', 'evidence.original.label', {'label': label})
+    title_text = text(str(title or '')).casefold()
+    if audio_known != 'it' and TITLE_ORIGINAL.search(title_text):
+        return details('original', 'Versione originale',
+                       'Indicazione esplicita nel titolo: ' + text(str(title)),
+                       'language.original', 'evidence.original.title', {'title': text(str(title))})
     if audio_known:
         return details('unknown', 'Lingua da verificare',
                        f'Audio indicato dalla fonte: {LANGUAGE_NAMES[audio_known]}; lingua originale non verificata.',
@@ -586,6 +596,9 @@ class Handler(SimpleHTTPRequestHandler):
 
     def end_headers(self):
         self.send_header('X-Content-Type-Options','nosniff')
+        if getattr(self,'_static',False):
+            # Revalidate static files on every load so UI updates show without a hard refresh.
+            self.send_header('Cache-Control','no-cache')
         super().end_headers()
 
     def do_HEAD(self):
@@ -604,6 +617,7 @@ class Handler(SimpleHTTPRequestHandler):
                 return self.json_response(gather(parse_qs(path.query).get('refresh')==['1']))
             except Exception as exc:
                 return self.json_response({'error':str(exc)},500)
+        self._static=True
         return super().do_GET()
 
     def json_response(self,payload,status=200):
