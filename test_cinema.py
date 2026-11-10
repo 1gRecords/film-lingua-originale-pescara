@@ -1142,6 +1142,28 @@ class DeployTests(unittest.TestCase):
             self.assertEqual(json.loads((out / 'api' / 'screenings.json').read_text(encoding='utf-8')), data)
             self.assertFalse(any('tmdb' in p.name for p in out.rglob('*')))
 
+    def test_build_static_adds_warm_url_without_key(self):
+        import os, tempfile
+        from unittest import mock
+        data = {'updatedAt': 'x', 'screenings': [{'id': 'a'}], 'sources': [], 'notes': [], 'noteCodes': []}
+        env = {'SPACE_PROXY_URL': 'https://proxy.example/', 'SPACE_PROXY_KEY': 'k123secret'}
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.dict(os.environ, env),                 mock.patch.object(cinema, 'gather', return_value=data):
+            out = Path(tmp) / 'site'
+            cinema.build_static(out)
+            page = (out / 'index.html').read_text(encoding='utf-8')
+            self.assertIn('data-warm="https://proxy.example"', page)
+            self.assertFalse(any('k123secret' in p.read_text(encoding='utf-8', errors='ignore') for p in out.rglob('*') if p.is_file()))
+
+    def test_build_static_omits_warm_url_when_unset(self):
+        import os, tempfile
+        from unittest import mock
+        data = {'updatedAt': 'x', 'screenings': [{'id': 'a'}], 'sources': [], 'notes': [], 'noteCodes': []}
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.dict(os.environ, {}, clear=False),                 mock.patch.object(cinema, 'gather', return_value=data):
+            os.environ.pop('SPACE_PROXY_URL', None)
+            out = Path(tmp) / 'site'
+            cinema.build_static(out)
+            self.assertNotIn('data-warm', (out / 'index.html').read_text(encoding='utf-8'))
+
     def test_space_uses_proxy_when_configured(self):
         import io, os
         from unittest import mock

@@ -573,6 +573,18 @@ function setLang(lang) {
 // Set by `cinema.py --build`: the online copy reads a JSON rebuilt every hour.
 const STATIC_SITE = document.documentElement.dataset.static === '1';
 
+// Online copy: a visitor's browser asks the Worker to refresh The Space data (at most every 30 min).
+function warmProxy() {
+  const warm = document.documentElement.dataset.warm;
+  if (!STATIC_SITE || !warm) return;
+  try {
+    const last = Number(localStorage.getItem('warmAt')) || 0;
+    if (Date.now() - last < 30 * 60 * 1000) return;
+    localStorage.setItem('warmAt', String(Date.now()));
+  } catch { /* storage unavailable: still try */ }
+  fetch(warm + '/warm', { mode: 'cors', cache: 'no-store' }).catch(() => {});
+}
+
 async function load(refresh = false) {
   if (state.loading) return;
   state.loading = true;
@@ -600,6 +612,7 @@ async function load(refresh = false) {
     render();
     renderSources();
     updateUpdatedLabel();
+    warmProxy();
   } catch (error) {
     $('updated').textContent = state.data ? t('updated.failedPrevious') : t('updated.failed');
     if (state.data) {

@@ -667,7 +667,11 @@ def build_static(out_dir):
     page=index.read_text(encoding='utf-8')
     if '<html lang="it">' not in page:
         raise SystemExit('web/index.html: tag <html lang="it"> non trovato.')
-    index.write_text(page.replace('<html lang="it">','<html lang="it" data-static="1">',1),encoding='utf-8')
+    attrs='data-static="1"'
+    warm=os.environ.get('SPACE_PROXY_URL','').strip().rstrip('/')
+    if warm:
+        attrs+=f' data-warm="{html.escape(warm,quote=True)}"'
+    index.write_text(page.replace('<html lang="it">',f'<html lang="it" {attrs}>',1),encoding='utf-8')
     (out/'api').mkdir()
     (out/'api'/'screenings.json').write_text(json.dumps(data,ensure_ascii=False),encoding='utf-8')
     (out/'.nojekyll').write_text('',encoding='utf-8')

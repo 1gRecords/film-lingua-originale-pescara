@@ -1,8 +1,9 @@
 // Cloudflare Worker: The Space Montesilvano showtimes for the GitHub Pages build.
-// thespacecinema.it challenges requests that start from GitHub runners, even through
-// a Worker. So a Cron Trigger refreshes the next 7 days every hour inside a Durable
-// Object pinned to Western Europe, and GitHub only reads the stored copy.
-// GET /films?day=YYYY-MM-DD and GET /status, both with header "x-key: <PROXY_KEY>".
+// thespacecinema.it challenges requests that start from GitHub runners or datacenters.
+// So visitors' browsers (home connections) call GET /warm (no key, CORS open): at most
+// once an hour it refreshes the next 7 days inside a Durable Object pinned to Western
+// Europe and stores them. GitHub reads GET /films?day=YYYY-MM-DD and GET /status with
+// header "x-key: <PROXY_KEY>". /warm only ever fetches the fixed The Space URLs.
 // PROXY_KEY is a Worker secret, never in this file. Deploy: cd cloudflare && npx wrangler deploy
 import { DurableObject } from 'cloudflare:workers';
 
@@ -10,7 +11,10 @@ const BASE = 'https://www.thespacecinema.it';
 const PAGE = BASE + '/cinema/montesilvano/al-cinema';
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36';
 const DAYS = 7;
-const FRESH_MS = 6 * 60 * 60 * 1000;
+const FRESH_MS = 36 * 60 * 60 * 1000;
+const WARM_OK_MS = 60 * 60 * 1000;
+const WARM_TRY_MS = 5 * 60 * 1000;
+const CORS = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, OPTIONS' };
 
 function romeDay(offset) {
   const when = new Date(Date.now() + offset * 86400000);
@@ -62,7 +66,22 @@ export class Fetcher extends DurableObject {
     }
     const last = { at: new Date().toISOString(), colo: await colo(), pageStatus, summary };
     await this.ctx.storage.put('last', last);
+    if (summary.some(item => item.endsWith(':200'))) await this.ctx.storage.put('lastOk', Date.now());
     return last;
+  }
+
+  async warm() {
+    const now = Date.now();
+    const lastOk = (await this.ctx.storage.get('lastOk')) || 0;
+    const lastTry = (await this.ctx.storage.get('lastTry')) || 0;
+    if (now - lastOk < WARM_OK_MS || now - lastTry < WARM_TRY_MS) return { ok: true, skipped: true };
+    await this.ctx.storage.put('lastTry', now);
+    try {
+      const last = await this.refresh();
+      return { ok: last.summary.some(item => item.endsWith(':200')), skipped: false, summary: last.summary };
+    } catch (error) {
+      return { ok: false, skipped: false, summary: [String(error)] };
+    }
   }
 
   async cached(day) {
@@ -70,7 +89,11 @@ export class Fetcher extends DurableObject {
   }
 
   async status() {
-    return (await this.ctx.storage.get('last')) || {};
+    return {
+      ...((await this.ctx.storage.get('last')) || {}),
+      lastTry: (await this.ctx.storage.get('lastTry')) || null,
+      lastOk: (await this.ctx.storage.get('lastOk')) || null,
+    };
   }
 }
 
@@ -81,6 +104,12 @@ function fetcher(env) {
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+    if (url.pathname === '/warm') {
+      if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
+      if (request.method !== 'GET') return new Response('method not allowed', { status: 405, headers: CORS });
+      const result = await fetcher(env).warm();
+      return Response.json(result, { headers: CORS });
+    }
     if (!env.PROXY_KEY || request.headers.get('x-key') !== env.PROXY_KEY) {
       return new Response('forbidden', { status: 403 });
     }
@@ -101,9 +130,5 @@ export default {
     if (res.status === 200) return new Response(res.body, { headers: { ...json, 'X-Source': 'live' } });
     if (stored) return new Response(stored.body, { headers: { ...json, 'X-Source': 'stale' } });
     return new Response(res.body, { status: res.status, headers: json });
-  },
-
-  async scheduled(event, env, ctx) {
-    ctx.waitUntil(fetcher(env).refresh());
-  },
+  }
 };
