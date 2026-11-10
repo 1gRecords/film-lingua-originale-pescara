@@ -7,7 +7,6 @@ const MESSAGES = {
     'document.title': 'Voci originali · Cinema a Pescara',
     'meta.description': 'Proiezioni in lingua originale a Pescara e dintorni. Orari, fonti e posizione dei cinema, senza film doppiati.',
     'nav.skip': 'Vai ai risultati',
-    'masthead.radius': 'Entro circa 30 min in auto',
     'language.group': 'Lingua del sito',
     'intro.edition': 'Le voci sono quelle del film.',
     'app.title': 'Voci originali',
@@ -61,6 +60,8 @@ const MESSAGES = {
     'actions.tickets': 'Orari e biglietti ↗',
     'actions.source': 'Fonte',
     'actions.location': 'Posizione ↗',
+    'manual.title': 'Altri cinema da verificare manualmente',
+    'manual.description': 'Per questi cinema la programmazione non si può leggere in automatico: controlla lingua e orari sul loro sito.',
     'sources.updating': 'In aggiornamento',
     'sources.unverified': 'Fonti non ancora verificate',
     'sources.summary': '{ok} di {total} fonti disponibili',
@@ -75,9 +76,6 @@ const MESSAGES = {
     'source.error': '{days}/{total} giorni letti; {reason}',
     'coverage.title': 'Le fonti, senza sorprese.',
     'coverage.description': 'La lingua viene verificata sulle indicazioni delle singole proiezioni. Una produzione italiana, da sola, non prova che l’audio sia originale. Se un sito non risponde, lo trovi segnalato qui.',
-    'notes.dev': 'VERSIONE DI SVILUPPO: Massimo e Sant’Andrea richiedono verifica manuale.',
-    'notes.drive': 'Tempi di guida stimati dal centro di Pescara; non sono misure del traffico attuale.',
-    'notes.sevenDays': 'Sette giorni di programmazione; la nazionalità italiana non dimostra la lingua originale.',
     'footer.about': 'Pescara e dintorni · Nessun account, nessuna installazione di pacchetti.',
     'footer.times': 'Controlla lingua e orario sul sito del cinema prima di partire.',
     'footer.tmdb': 'Questo prodotto usa l’API di TMDB ma non è approvato o certificato da TMDB.',
@@ -103,7 +101,6 @@ const MESSAGES = {
     'document.title': 'Original voices · Cinema in Pescara',
     'meta.description': 'Original-language screenings in and around Pescara. Showtimes, sources and cinema locations, without dubbed films.',
     'nav.skip': 'Skip to results',
-    'masthead.radius': 'Within about 30 min by car',
     'language.group': 'Site language',
     'intro.edition': 'The voices are the film’s own.',
     'app.title': 'Original voices',
@@ -157,6 +154,8 @@ const MESSAGES = {
     'actions.tickets': 'Times and tickets ↗',
     'actions.source': 'Source',
     'actions.location': 'Location ↗',
+    'manual.title': 'Other cinemas to check manually',
+    'manual.description': 'The schedule for these cinemas cannot be read automatically: check language and times on their site.',
     'sources.updating': 'Updating',
     'sources.unverified': 'Sources not checked yet',
     'sources.summary': '{ok} of {total} sources available',
@@ -171,9 +170,6 @@ const MESSAGES = {
     'source.error': '{days}/{total} days read; {reason}',
     'coverage.title': 'The sources, no surprises.',
     'coverage.description': 'Language is checked against each screening’s own indication. An Italian production alone does not prove the audio is original. If a site does not respond, it is flagged here.',
-    'notes.dev': 'DEVELOPMENT VERSION: Massimo and Sant’Andrea need a manual check.',
-    'notes.drive': 'Driving times are estimates from central Pescara; they are not live traffic measurements.',
-    'notes.sevenDays': 'Seven days of showtimes; Italian nationality alone does not prove the original language.',
     'footer.about': 'Pescara and surroundings · No account, no package installation.',
     'footer.times': 'Check language and time on the cinema site before you leave.',
     'footer.tmdb': 'This product uses the TMDB API but is not endorsed or certified by TMDB.',
@@ -461,22 +457,15 @@ function render() {
   if (!state.data) return;
   const filtered = filterRows();
   const confirmed = filtered.filter(item => item.classification === 'original' || item.classification === 'italian');
-  const unknown = filtered.filter(item => item.classification === 'unknown');
-  $('confirmed-count').textContent = confirmed.length;
-  $('unknown-count').textContent = unknown.length;
-  const rows = state.mode === 'confirmed' ? confirmed : unknown;
+  const rows = confirmed; // 'Da verificare' rows stay in the data but are not shown publicly
   rows.sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time) || displayTitle(a.title).localeCompare(displayTitle(b.title), locale()));
   $('result-count').textContent = t(rows.length === 1 ? 'results.one' : 'results.many', { count: rows.length });
-  $('confirmed-tab').classList.toggle('active', state.mode === 'confirmed');
-  $('unknown-tab').classList.toggle('active', state.mode === 'unknown');
-  $('confirmed-tab').setAttribute('aria-selected', String(state.mode === 'confirmed'));
-  $('unknown-tab').setAttribute('aria-selected', String(state.mode === 'unknown'));
-  $('mode-note').textContent = state.mode === 'confirmed' ? t('mode.confirmed') : t('mode.unknown');
+  $('mode-note').textContent = t('mode.confirmed');
   if (!rows.length) {
     const filtersActive = $('search').value.trim() || $('date').value || $('cinema').value || (!$('include-italian').checked && availableRows().some(item => item.classification === 'italian'));
     const unavailable = state.data.sources.some(source => source.status !== 'ok');
-    const title = state.mode === 'unknown' ? t('empty.unknown.title') : t('empty.confirmed.title');
-    const message = filtersActive ? t('empty.filters') : state.mode === 'unknown' ? t('empty.unknown.body') : unavailable ? t('empty.unavailable.body') : t('empty.none.body');
+    const title = t('empty.confirmed.title');
+    const message = filtersActive ? t('empty.filters') : unavailable ? t('empty.unavailable.body') : t('empty.none.body');
     showNotice(title, message);
     return;
   }
@@ -494,9 +483,21 @@ function render() {
 }
 
 function renderSources() {
-  const sources = state.data.sources;
+  const manual = state.data.sources.filter(source => source.status === 'manual');
+  const sources = state.data.sources.filter(source => source.status !== 'manual');
   const ok = sources.filter(source => source.status === 'ok').length;
   $('source-summary').textContent = t('sources.summary', { ok, total: sources.length });
+  const manualFragment = document.createDocumentFragment();
+  for (const source of manual) {
+    const article = element('article', 'source');
+    article.append(element('div', 'source-top', ''), );
+    article.firstChild.append(element('span', 'source-name', source.name || source.id));
+    const manualLink = link(t('source.open'), source.url);
+    if (manualLink) article.append(manualLink);
+    manualFragment.append(article);
+  }
+  $('manual-sources').replaceChildren(manualFragment);
+  $('manual-section').hidden = !manual.length;
   const fragment = document.createDocumentFragment();
   for (const source of sources) {
     const article = element('article', 'source');
@@ -511,13 +512,6 @@ function renderSources() {
     fragment.append(article);
   }
   $('sources').replaceChildren(fragment);
-  const codes = state.data.noteCodes || [];
-  const notes = state.data.notes.map((note, index) => {
-    const code = typeof codes[index] === 'string' ? codes[index] : '';
-    const value = code ? t(code) : state.lang === 'it' ? note : '';
-    return value ? element('p', '', value) : null;
-  }).filter(Boolean);
-  $('notes').replaceChildren(...notes);
 }
 
 function updateUpdatedLabel() {
@@ -640,8 +634,6 @@ for (const button of document.querySelectorAll('.lang-option')) {
 $('search').addEventListener('input', render);
 ['date', 'cinema', 'include-italian'].forEach(id => $(id).addEventListener('change', render));
 $('refresh').addEventListener('click', () => load(true));
-$('confirmed-tab').addEventListener('click', () => { state.mode = 'confirmed'; render(); });
-$('unknown-tab').addEventListener('click', () => { state.mode = 'unknown'; render(); });
 
 applyStatic();
 $('updated').textContent = t('updated.connecting');

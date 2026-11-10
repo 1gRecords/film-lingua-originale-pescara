@@ -1120,6 +1120,21 @@ select option {
   font-size: var(--fs-small);
 }
 
+.manual-sources {
+  margin-top: var(--s-8);
+  padding-top: var(--s-5);
+  border-top: 1px solid var(--line);
+}
+
+.manual-sources h2 {
+  font: 400 var(--fs-title) / 1.2 var(--font-serif);
+  letter-spacing: -0.01em;
+}
+
+.manual-sources[hidden] {
+  display: none;
+}
+
 .data-notes p {
   margin-top: var(--s-3);
   color: var(--muted);

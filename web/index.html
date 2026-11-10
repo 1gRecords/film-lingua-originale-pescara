@@ -5,6 +5,21 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#13100e">
   <meta name="description" content="Proiezioni in lingua originale a Pescara e dintorni. Orari, fonti e posizione dei cinema, senza film doppiati." data-i18n-content="meta.description">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Voci originali">
+  <meta property="og:title" content="Voci originali · Cinema a Pescara">
+  <meta property="og:description" content="Film in lingua originale al cinema a Pescara e dintorni: orari e fonti, senza film doppiati.">
+  <meta property="og:url" content="https://1grecords.github.io/film-lingua-originale-pescara/">
+  <meta property="og:locale" content="it_IT">
+  <meta property="og:image" content="https://1grecords.github.io/film-lingua-originale-pescara/og-image.png">
+  <meta property="og:image:type" content="image/png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Voci originali · Cinema a Pescara">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Voci originali · Cinema a Pescara">
+  <meta name="twitter:description" content="Film in lingua originale al cinema a Pescara e dintorni: orari e fonti, senza film doppiati.">
+  <meta name="twitter:image" content="https://1grecords.github.io/film-lingua-originale-pescara/og-image.png">
   <title>Voci originali · Cinema a Pescara</title>
   <link rel="stylesheet" href="style.css">
   <script src="app.js" defer></script>
@@ -15,7 +30,6 @@
     <header class="masthead">
       <div class="brand"><span class="reel" aria-hidden="true">◉</span> CINEMA / PESCARA</div>
       <div class="masthead-tools">
-        <span class="radius" data-i18n="masthead.radius">Entro circa 30 min in auto</span>
         <div class="lang-switch" role="group" aria-label="Lingua del sito" data-i18n-aria-label="language.group">
           <button type="button" class="lang-option" data-lang="it" aria-pressed="true"><svg class="lang-flag" viewBox="0 0 3 2" aria-hidden="true" focusable="false"><rect width="1" height="2" fill="#009246"/><rect x="1" width="1" height="2" fill="#fff"/><rect x="2" width="1" height="2" fill="#ce2b37"/></svg><span class="lang-code">IT</span></button>
           <button type="button" class="lang-option" data-lang="en" aria-pressed="false"><svg class="lang-flag" viewBox="0 0 60 36" aria-hidden="true" focusable="false"><rect width="60" height="36" fill="#012169"/><path d="M0 0 L60 36 M60 0 L0 36" stroke="#fff" stroke-width="8"/><path d="M0 0 L60 36 M60 0 L0 36" stroke="#C8102E" stroke-width="3"/><path d="M30 0 V36 M0 18 H60" stroke="#fff" stroke-width="12"/><path d="M30 0 V36 M0 18 H60" stroke="#C8102E" stroke-width="7"/></svg><span class="lang-code">EN</span></button>
@@ -40,10 +54,6 @@
       <label class="check"><input type="checkbox" id="include-italian" autocomplete="off"><span data-i18n="italian.toggle">Includi gli originali italiani</span></label>
     </section>
     <div class="results-top">
-      <div class="tabs" role="tablist" aria-label="Affidabilità della lingua" data-i18n-aria-label="tabs.label">
-        <button id="confirmed-tab" class="tab active" type="button" role="tab" aria-selected="true" aria-controls="results"><span data-i18n="tab.confirmed">Lingua confermata</span> <span id="confirmed-count">—</span></button>
-        <button id="unknown-tab" class="tab" type="button" role="tab" aria-selected="false" aria-controls="results"><span data-i18n="tab.unknown">Da verificare</span> <span id="unknown-count">—</span></button>
-      </div>
       <p id="result-count" aria-live="polite"></p>
     </div>
     <p id="load-status" class="load-status" role="status" aria-live="polite" hidden></p>
@@ -53,7 +63,11 @@
       <div class="coverage-heading"><h2 id="coverage-title" data-i18n="coverage.title">Le fonti, senza sorprese.</h2><span id="source-summary">In aggiornamento</span></div>
       <p class="coverage-description" data-i18n="coverage.description">La lingua viene verificata sulle indicazioni delle singole proiezioni. Una produzione italiana, da sola, non prova che l’audio sia originale. Se un sito non risponde, lo trovi segnalato qui.</p>
       <div id="sources" class="source-list"></div>
-      <div id="notes" class="data-notes"></div>
+    </section>
+    <section class="manual-sources" aria-labelledby="manual-title" id="manual-section" hidden>
+      <h2 id="manual-title" data-i18n="manual.title">Altri cinema da verificare manualmente</h2>
+      <p class="coverage-description" data-i18n="manual.description">Per questi cinema la programmazione non si può leggere in automatico: controlla lingua e orari sul loro sito.</p>
+      <div id="manual-sources" class="source-list"></div>
     </section>
     <footer><p data-i18n="footer.about">Pescara e dintorni · Nessun account, nessuna installazione di pacchetti.</p><p data-i18n="footer.times">Controlla lingua e orario sul sito del cinema prima di partire.</p><p class="tmdb-credit"><span data-i18n="footer.tmdb">Questo prodotto usa l’API di TMDB ma non è approvato o certificato da TMDB.</span> <a href="https://www.themoviedb.org/" target="_blank" rel="noopener noreferrer">themoviedb.org</a></p></footer>
   </main>
